@@ -82,10 +82,43 @@ curl -X POST http://localhost:8001/chat \
 ### Option 3: Using Docker
 
 ```bash
-# Build and run with Docker
-docker build --target development -t devops-chatbot:dev .
-docker run -p 8001:8001 --env-file .env devops-chatbot:dev
+# Build the development Docker image
+docker build --target development -t devops-chatbot:local .
+
+# Verify the image was built correctly
+docker images | grep devops-chatbot
+
+# Run the API server in a container
+docker run --rm -d -p 8001:8001 --name devops-api --env-file .env devops-chatbot:local python -m uvicorn src.chatbot.api.endpoints.main:app --host 0.0.0.0 --port 8001
+
+# Check if the API is running by testing the health endpoint
+curl -X GET http://localhost:8001/health
+# Expected response: {"status":"healthy","version":"0.1.0"}
+
+# Test the chat endpoint in learn mode
+curl -X POST http://localhost:8001/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What is Azure DevOps?", "mode": "learn"}'
+
+# Run the CLI inside the container (alternative approach)
+docker run --rm -it --env-file .env devops-chatbot:local python -m src.cli --mode general
+
+# View logs of the running container
+docker logs devops-api
+
+# Stop the container when done
+docker stop devops-api
 ```
+
+> **Note on Environment Variables**: Make sure your `.env` file contains all required variables. If you don't have a `.env` file, you can pass environment variables directly:
+> ```bash
+> docker run -p 8001:8001 \
+>   -e AZURE_OPENAI_API_KEY=your_key \
+>   -e AZURE_OPENAI_ENDPOINT=your_endpoint \
+>   -e AZURE_OPENAI_DEPLOYMENT_NAME=your_deployment \
+>   -e AZURE_OPENAI_API_VERSION=2023-05-15 \
+>   devops-chatbot:local
+> ```
 
 ### 💡 Important Note
 
