@@ -50,9 +50,9 @@ Get up and running quickly with the Azure DevOps CLI Learning Chatbot in "learn-
 ### Option 1: CLI Interface (Simplest)
 
 ```bash
-# Clone the repository (if you haven't already)
-git clone https://github.com/yourusername/devops-chatbot.git
-cd devops-chatbot
+# Clone the repository from GitHub
+git clone https://github.com/david3xu/azure-devops-cli-chatbot.git
+cd azure-devops-cli-chatbot
 
 # Install dependencies
 pip install -r requirements.txt
@@ -63,6 +63,7 @@ cp .env.template .env
 
 # Run in learn-only mode (default)
 python -m src.cli --mode general
+# Or explicitly set learn mode
 python -m src.cli --mode general --execution-mode learn
 ```
 
@@ -766,4 +767,54 @@ The project includes comprehensive Azure resource management through the `.azure
 3. Build and push Docker image to the registry
 4. Deploy Azure App Service using ARM template with container configuration
 
-For detailed instructions, see the [Azure Resource Management README](.azure/README.md). 
+For detailed instructions, see the [Azure Resource Management README](.azure/README.md).
+
+## Contributing
+
+This project is hosted on GitHub and welcomes contributions from the community. Here's how you can contribute:
+
+### Getting the Code
+
+```bash
+# Clone the repository
+git clone https://github.com/david3xu/azure-devops-cli-chatbot.git
+cd azure-devops-cli-chatbot
+```
+
+### Development Workflow
+
+1. **Create a branch for your changes**:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Make your changes and commit them**:
+   ```bash
+   git add .
+   git commit -m "Add feature: brief description"
+   ```
+
+3. **Push your branch to GitHub**:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+4. **Create a Pull Request** on GitHub for review
+
+### Contribution Guidelines
+
+- Follow the existing code style and patterns
+- Add tests for new functionality
+- Update documentation to reflect your changes
+- Keep commits focused and with clear messages
+- Reference issue numbers in commit messages where appropriate
+
+### Issues and Feature Requests
+
+If you find a bug or have a feature request, please create an issue on the [GitHub repository](https://github.com/david3xu/azure-devops-cli-chatbot/issues).
+
+When reporting issues, please include:
+- Steps to reproduce
+- Expected behavior
+- Actual behavior
+- Environment details (OS, Python version, etc.) 
