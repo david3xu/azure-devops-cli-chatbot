@@ -758,6 +758,34 @@ All operations include proper error handling, logging, and consistent parameter 
 
 ## Troubleshooting
 
+### GitHub Secret Scanning Issues
+
+If your push is blocked by GitHub due to secret scanning detection:
+
+1. **Immediate Fix**: The safest approach is to completely remove the sensitive file from Git history:
+   ```bash
+   # Remove a file completely from Git history
+   git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch PATH_TO_FILE_WITH_SECRET' --prune-empty --tag-name-filter cat -- --all
+   
+   # Force push the changes
+   git push origin main --force
+   ```
+
+2. **Prevent Future Issues**:
+   - Add sensitive file patterns to `.gitignore`
+   - For markdown documentation with potential secrets, exclude all but README.md:
+     ```
+     # Ignore all markdown files except README.md
+     *.md
+     !README.md
+     ```
+   - Use environment variables for sensitive values
+   - Consider using a secrets manager like Azure Key Vault
+
+3. **Alternative Options**:
+   - If you're sure the detected "secret" is a false positive, you can follow the URL provided in the error message to mark it as safe
+   - For secrets in the latest commit only, amend the commit: `git commit --amend`
+
 ### Azure DevOps CLI Command Structure
 
 When working with the Azure DevOps CLI, it's important to understand the command structure:
