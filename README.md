@@ -2,6 +2,8 @@
 
 A comprehensive learning project combining Azure DevOps CLI operations, Python chatbot development with Azure OpenAI, containerization, and CI/CD pipeline implementation.
 
+Version: 0.2.0 (CI/CD Pipeline Test)
+
 ## Project Overview
 
 This project demonstrates a practical approach to learning and operating Azure DevOps through the development of an intelligent chatbot system. It's architected around several core principles:
