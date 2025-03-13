@@ -4,6 +4,9 @@ A comprehensive learning project combining Azure DevOps CLI operations, Python c
 
 Version: 0.2.0 (CI/CD Pipeline Test)
 
+[![CI](https://github.com/david3xu/azure-devops-cli-chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/david3xu/azure-devops-cli-chatbot/actions/workflows/ci.yml)
+[![CD](https://github.com/david3xu/azure-devops-cli-chatbot/actions/workflows/cd.yml/badge.svg)](https://github.com/david3xu/azure-devops-cli-chatbot/actions/workflows/cd.yml)
+
 ## Project Overview
 
 This project demonstrates a practical approach to learning and operating Azure DevOps through the development of an intelligent chatbot system. It's architected around several core principles:
