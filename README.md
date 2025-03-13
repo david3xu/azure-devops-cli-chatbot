@@ -444,7 +444,7 @@ pytest-watch
 ### ✅ Azure DevOps CLI Operations
 - [x] Implement command execution framework
 - [x] Repository operations (create, list, clone, branches)
-- [x] Work item management (create, update, query)
+- [x] Work item operations (create, update, query)
 - [x] Pipeline operations (create, run, monitor)
 - [ ] Implement project creation and configuration
 
@@ -771,6 +771,95 @@ The project includes comprehensive Azure resource management through the `.azure
 4. Deploy Azure App Service using ARM template with container configuration
 
 For detailed instructions, see the [Azure Resource Management README](.azure/README.md).
+
+## CI/CD Setup and Local Testing
+
+This project uses GitHub Actions for continuous integration and deployment. Follow these steps to set up the CI/CD pipeline and test it locally.
+
+### Setting Up GitHub Actions
+
+1. **Create GitHub Environments**:
+   - Go to your repository on GitHub > Settings > Environments
+   - Create two environments: `development` and `production`
+   - For production, add required reviewers for approval protection
+
+2. **Configure GitHub Secrets**:
+   - Go to Settings > Secrets and variables > Actions
+   - Add the following secrets:
+     ```
+     AZURE_CREDENTIALS - Service Principal credentials JSON
+     ACR_REGISTRY     - Azure Container Registry URL (e.g., myregistry.azurecr.io)
+     ACR_USERNAME     - ACR username
+     ACR_PASSWORD     - ACR password
+     ```
+
+3. **Creating Azure Resources**:
+   ```bash
+   # Login to Azure
+   az login
+
+   # Create Resource Group
+   az group create --name devops-chatbot-rg --location eastus
+
+   # Create Container Registry
+   az acr create --resource-group devops-chatbot-rg --name devopschatbotacr --sku Basic
+
+   # Create App Service Plan
+   az appservice plan create --resource-group devops-chatbot-rg --name devops-chatbot-plan --sku B1 --is-linux
+
+   # Create Web Apps for Dev and Prod
+   az webapp create --resource-group devops-chatbot-rg --plan devops-chatbot-plan --name devops-chatbot-dev --runtime "PYTHON|3.8"
+   az webapp create --resource-group devops-chatbot-rg --plan devops-chatbot-plan --name devops-chatbot --runtime "PYTHON|3.8"
+   ```
+
+### Testing Locally Before Pushing
+
+Before pushing changes to GitHub, test your workflow locally:
+
+1. **Test Linting**:
+   ```bash
+   pip install flake8
+   flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+   flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+   ```
+
+2. **Run Tests**:
+   ```bash
+   pip install pytest pytest-cov
+   pytest src/tests/ --cov=src --cov-report=term
+   ```
+
+3. **Build Docker Image**:
+   ```bash
+   docker build --target development -t devops-chatbot:local .
+   docker run -p 8001:8001 --env-file .env -it devops-chatbot:local
+   ```
+
+4. **Test the API Health Endpoint**:
+   ```bash
+   curl http://localhost:8001/health
+   ```
+
+5. **Run GitHub Actions Locally** (optional, requires [act](https://github.com/nektos/act)):
+   ```bash
+   # Install act
+   # On macOS: brew install act
+   # On Linux: curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+
+   # Run CI workflow locally
+   act -j test
+   ```
+
+### Monitoring CI/CD Workflow
+
+Once you push changes to GitHub:
+
+1. Go to the Actions tab in your repository
+2. Click on the running workflow to see detailed logs
+3. Check each job's output for errors or warnings
+4. After CI succeeds, monitor CD progress in the deployment environments
+
+For detailed CI/CD documentation, see [CI_CD_SETUP.md](CI_CD_SETUP.md).
 
 ## Contributing
 
