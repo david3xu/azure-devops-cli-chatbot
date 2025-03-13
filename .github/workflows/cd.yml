@@ -46,13 +46,13 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'devops-chatbot-dev'
+          app-name: 'uwachatbot-dev'
           images: ${{ secrets.ACR_REGISTRY }}/devops-chatbot:${{ github.sha }}
       
       - name: Run Health Check
         run: |
           sleep 60  # Wait for deployment to be ready
-          curl -f https://devops-chatbot-dev.azurewebsites.net/health || exit 1
+          curl -f https://uwachatbot-dev.azurewebsites.net/health || exit 1
   
   deploy-prod:
     name: Deploy to Production
@@ -74,10 +74,10 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'devops-chatbot'
+          app-name: 'uwachatbot-prod'
           images: ${{ secrets.ACR_REGISTRY }}/devops-chatbot:${{ github.sha }}
       
       - name: Run Health Check
         run: |
           sleep 60  # Wait for deployment to be ready
-          curl -f https://devops-chatbot.azurewebsites.net/health || exit 1 
+          curl -f https://uwachatbot-prod.azurewebsites.net/health || exit 1 
