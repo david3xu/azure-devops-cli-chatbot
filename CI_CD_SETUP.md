@@ -136,6 +136,157 @@ If workflows fail, check:
 4. **Deployment Failures**: Check Azure credentials and App Service configuration
 5. **Health Check Failures**: Verify that the application starts correctly 
 
+## Using Existing Azure Resources
+
+Instead of creating new Azure resources, you can utilize your existing infrastructure for deployment. This section explains how to integrate the CI/CD workflow with existing Azure resources.
+
+### 1. Identify Existing Resources
+
+First, identify the existing resources you want to use:
+
+```bash
+# List resource groups
+az group list --query "[].{Name:name, Location:location}" -o table
+
+# List App Service plans in a resource group
+az appservice plan list --resource-group YOUR_RESOURCE_GROUP --query "[].{Name:name, SKU:sku.name, Capacity:sku.capacity}" -o table
+
+# List Web Apps
+az webapp list --resource-group YOUR_RESOURCE_GROUP --query "[].{Name:name, DefaultHostName:defaultHostName, State:state}" -o table
+
+# List Container Registries
+az acr list --query "[].{Name:name, LoginServer:loginServer, AdminEnabled:adminUserEnabled}" -o table
+```
+
+### 2. Configure Existing Web Apps for Containers
+
+Ensure your existing App Services are configured to use container deployment:
+
+```bash
+# Enable container settings on existing web app
+az webapp config container set \
+  --name YOUR_EXISTING_DEV_APP \
+  --resource-group YOUR_RESOURCE_GROUP \
+  --enable-app-service-storage true \
+  --docker-registry-server-url https://YOUR_ACR_REGISTRY
+
+# Same for production app
+az webapp config container set \
+  --name YOUR_EXISTING_PROD_APP \
+  --resource-group YOUR_RESOURCE_GROUP \
+  --enable-app-service-storage true \
+  --docker-registry-server-url https://YOUR_ACR_REGISTRY
+```
+
+### 3. Set Correct Application Settings
+
+Make sure your apps have the necessary environment variables:
+
+```bash
+# Set application settings for development app
+az webapp config appsettings set \
+  --name YOUR_EXISTING_DEV_APP \
+  --resource-group YOUR_RESOURCE_GROUP \
+  --settings \
+    AZURE_OPENAI_API_KEY="placeholder" \
+    AZURE_OPENAI_ENDPOINT="placeholder" \
+    AZURE_OPENAI_DEPLOYMENT_NAME="placeholder" \
+    WEBSITES_PORT=8001
+
+# Same for production with appropriate values
+az webapp config appsettings set \
+  --name YOUR_EXISTING_PROD_APP \
+  --resource-group YOUR_RESOURCE_GROUP \
+  --settings \
+    AZURE_OPENAI_API_KEY="placeholder" \
+    AZURE_OPENAI_ENDPOINT="placeholder" \
+    AZURE_OPENAI_DEPLOYMENT_NAME="placeholder" \
+    WEBSITES_PORT=8001
+```
+
+### 4. Update Workflow Files
+
+Modify the workflow files to use your existing resources:
+
+1. **Update `cd.yml`**:
+   
+   ```yaml
+   # Development deployment
+   - name: Deploy to Azure App Service
+     uses: azure/webapps-deploy@v2
+     with:
+       app-name: 'YOUR_EXISTING_DEV_APP'  # Your existing development app
+       images: ${{ secrets.ACR_REGISTRY }}/devops-chatbot:${{ github.sha }}
+   
+   # Production deployment
+   - name: Deploy to Azure App Service
+     uses: azure/webapps-deploy@v2
+     with:
+       app-name: 'YOUR_EXISTING_PROD_APP'  # Your existing production app
+       images: ${{ secrets.ACR_REGISTRY }}/devops-chatbot:${{ github.sha }}
+   ```
+
+2. **Update Health Check URLs**:
+   
+   ```yaml
+   - name: Run Health Check
+     run: |
+       sleep 60  # Wait for deployment to be ready
+       curl -f https://YOUR_EXISTING_DEV_APP.azurewebsites.net/health || exit 1
+   ```
+
+### 5. Get Existing Resource Credentials
+
+Collect the credentials needed for GitHub Secrets:
+
+```bash
+# Get Container Registry credentials
+ACR_REGISTRY=$(az acr show --name YOUR_EXISTING_ACR --query loginServer -o tsv)
+ACR_USERNAME=$(az acr credential show --name YOUR_EXISTING_ACR --query username -o tsv)
+ACR_PASSWORD=$(az acr credential show --name YOUR_EXISTING_ACR --query "passwords[0].value" -o tsv)
+
+# Create service principal for GitHub Actions
+# Use a more targeted scope to your specific resource group
+az ad sp create-for-rbac \
+  --name "devops-chatbot-github" \
+  --role "Contributor" \
+  --scopes /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/YOUR_RESOURCE_GROUP \
+  --sdk-auth
+```
+
+### 6. Configure GitHub Environments
+
+Create environments in GitHub that match your existing resources:
+
+1. **Development Environment**:
+   - Name: `development`
+   - URL: `https://YOUR_EXISTING_DEV_APP.azurewebsites.net`
+   - No protection rules needed
+
+2. **Production Environment**:
+   - Name: `production`
+   - URL: `https://YOUR_EXISTING_PROD_APP.azurewebsites.net`
+   - Add required reviewers for protection
+
+### 7. Verify Web App Configuration
+
+Check that your App Service can properly host the containerized application:
+
+```bash
+# Verify container settings
+az webapp config container show \
+  --name YOUR_EXISTING_DEV_APP \
+  --resource-group YOUR_RESOURCE_GROUP
+
+# Ensure app is running Linux
+az webapp show \
+  --name YOUR_EXISTING_DEV_APP \
+  --resource-group YOUR_RESOURCE_GROUP \
+  --query "kind"
+```
+
+By using existing resources, you can save costs and integrate the project with your current infrastructure. Just ensure the resources meet the necessary requirements (Python support, Linux, container compatibility).
+
 ## Local Testing Before Pushing
 
 Before pushing changes that trigger the CI/CD workflows, test your changes locally to ensure they pass:

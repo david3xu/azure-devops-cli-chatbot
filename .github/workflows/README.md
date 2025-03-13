@@ -83,4 +83,53 @@ The CD workflow uses GitHub environments:
 - **development**: For staging deployments
 - **production**: For production deployments (requires approval)
 
-Set these up in your repository Settings → Environments. 
+Set these up in your repository Settings → Environments.
+
+## Using Existing Azure Resources
+
+If you already have Azure resources and want to use them instead of creating new ones:
+
+### 1. Identify Existing Resources
+
+```bash
+# List your existing resource groups
+az group list --output table
+
+# List existing App Service plans
+az appservice plan list --resource-group YOUR_RESOURCE_GROUP --output table
+
+# List existing web apps
+az webapp list --resource-group YOUR_RESOURCE_GROUP --output table
+
+# List existing container registries
+az acr list --output table
+```
+
+### 2. Get Credentials for Existing Resources
+
+```bash
+# Get existing ACR credentials (for your existing registry)
+ACR_REGISTRY=$(az acr show --name YOUR_EXISTING_ACR --query loginServer -o tsv)
+ACR_USERNAME=$(az acr credential show --name YOUR_EXISTING_ACR --query username -o tsv)
+ACR_PASSWORD=$(az acr credential show --name YOUR_EXISTING_ACR --query "passwords[0].value" -o tsv)
+
+# Create service principal with access to your existing resources
+az ad sp create-for-rbac \
+  --name "devops-chatbot-github" \
+  --role "Contributor" \
+  --scopes /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/YOUR_RESOURCE_GROUP \
+  --sdk-auth
+```
+
+### 3. Update Workflow Files
+
+In the workflow YAML files, update the app names to match your existing resources:
+
+```yaml
+# Example for cd.yml
+- name: Deploy to Azure App Service
+  uses: azure/webapps-deploy@v2
+  with:
+    app-name: 'YOUR_EXISTING_APP_NAME'  # Your existing App Service name
+    images: ${{ secrets.ACR_REGISTRY }}/devops-chatbot:${{ github.sha }}
+``` 
