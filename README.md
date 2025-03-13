@@ -2,10 +2,14 @@
 
 A comprehensive learning project combining Azure DevOps CLI operations, Python chatbot development with Azure OpenAI, containerization, and CI/CD pipeline implementation.
 
-Version: 0.2.0 (CI/CD Pipeline Test)
+Version: 0.2.1 (CI/CD Pipeline Test)
 
 [![CI](https://github.com/david3xu/azure-devops-cli-chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/david3xu/azure-devops-cli-chatbot/actions/workflows/ci.yml)
 [![CD](https://github.com/david3xu/azure-devops-cli-chatbot/actions/workflows/cd.yml/badge.svg)](https://github.com/david3xu/azure-devops-cli-chatbot/actions/workflows/cd.yml)
+
+**Deployment URLs:**
+- Development: [https://uwachatbot-dev.azurewebsites.net](https://uwachatbot-dev.azurewebsites.net)
+- Production: [https://uwachatbot-prod.azurewebsites.net](https://uwachatbot-prod.azurewebsites.net)
 
 ## Project Overview
 
