@@ -141,6 +141,7 @@ class CommandRunner:
         
         Args:
             command: The Azure DevOps CLI command to run (without 'az devops' prefix).
+                     For repos commands, use 'repos' directly (not 'devops repos').
             output_format: Output format (json, table, tsv, yaml).
             check: Whether to check the return code and raise an exception on non-zero exit.
             timeout: Command timeout in seconds.
@@ -148,7 +149,12 @@ class CommandRunner:
         Returns:
             The command output, parsed as JSON if output_format is 'json', otherwise as a string.
         """
-        full_command = f"az devops {command} -o {output_format}"
+        # Check if this is a repos command
+        if command.startswith('repos '):
+            full_command = f"az {command} -o {output_format}"
+        else:
+            full_command = f"az devops {command} -o {output_format}"
+            
         parse_json = output_format == "json"
         
         return CommandRunner.run_command(

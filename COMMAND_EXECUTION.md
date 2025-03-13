@@ -74,6 +74,60 @@ Before executing commands, ensure:
 - The chatbot validates inputs to prevent command injection attacks.
 - Sensitive information (tokens, credentials) is never logged or stored.
 
+## Azure DevOps CLI Command Structure
+
+When working with Azure DevOps CLI commands, it's important to understand the correct command structure, which varies depending on the resource type:
+
+### Repository Commands
+
+Repository commands use the format `az repos [command]` (not `az devops repos`):
+
+```bash
+# Correct formats:
+az repos list
+az repos show --repository MyRepo
+az repos create --name NewRepo
+
+# Incorrect formats:
+az devops repos list
+az devops repos show --repository MyRepo
+```
+
+### Work Item Commands
+
+Work item commands use the format `az boards [command]`:
+
+```bash
+# Correct formats:
+az boards work-item create --title "Fix login issue" --type Bug
+az boards work-item show --id 123
+az boards query --wiql "SELECT [System.Id] FROM workitems"
+```
+
+### Pipeline Commands
+
+Pipeline commands use the format `az pipelines [command]`:
+
+```bash
+# Correct formats:
+az pipelines list
+az pipelines run --name "CI Pipeline"
+az pipelines show --id 456
+```
+
+### Project Commands
+
+Project commands use the format `az devops project [command]`:
+
+```bash
+# Correct formats:
+az devops project list
+az devops project show --project MyProject
+az devops project create --name NewProject
+```
+
+Understanding these command structures is crucial for troubleshooting when working with the chatbot in execution mode. The chatbot is designed to handle these structural differences automatically, translating your natural language requests into the correct command format.
+
 ## Troubleshooting
 
 If command execution fails, the chatbot will:

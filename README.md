@@ -723,6 +723,72 @@ All operations include proper error handling, logging, and consistent parameter 
 - Budget alerts for Azure OpenAI usage
 - Regular cost optimization reviews
 
+## Troubleshooting
+
+### Azure DevOps CLI Command Structure
+
+When working with the Azure DevOps CLI, it's important to understand the command structure:
+
+1. **Repository Commands**: Use `az repos` (not `az devops repos`)
+   ```bash
+   # Correct:
+   az repos list
+   
+   # Incorrect:
+   az devops repos list
+   ```
+
+2. **Most Other Commands**: Use `az devops [resource]`
+   ```bash
+   # Example:
+   az devops project list
+   az devops work item create
+   ```
+
+This distinction is important when developing or debugging the chatbot. If you encounter errors like:
+```
+ERROR: 'repos' is misspelled or not recognized by the system.
+```
+It likely means the command is using the wrong prefix structure.
+
+### OpenAI Connection Issues
+
+If you encounter issues connecting to Azure OpenAI:
+
+1. **Check Authentication Settings**: Ensure API key authentication is enabled:
+   ```bash
+   az cognitiveservices account show --name YOUR_OPENAI_RESOURCE_NAME --resource-group YOUR_RESOURCE_GROUP
+   ```
+
+2. **Verify Environment Variables**:
+   - Ensure all required OpenAI variables are set in your `.env` file
+   - Check for trailing slashes in the endpoint URL (should not have them)
+
+3. **Test Direct API Access**:
+   ```bash
+   curl -X POST $AZURE_OPENAI_ENDPOINT/deployments/$AZURE_OPENAI_DEPLOYMENT_NAME/chat/completions?api-version=$AZURE_OPENAI_API_VERSION \
+     -H "Content-Type: application/json" \
+     -H "api-key: $AZURE_OPENAI_API_KEY" \
+     -d '{"messages":[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}]}'
+   ```
+
+### Docker Issues
+
+1. **Container Won't Start**: Check environment variables are passed correctly:
+   ```bash
+   # Using --env-file
+   docker run -p 8001:8001 --env-file .env devops-chatbot:local
+   
+   # Or setting variables individually
+   docker run -p 8001:8001 -e AZURE_OPENAI_API_KEY=your_key -e AZURE_OPENAI_ENDPOINT=your_endpoint ... devops-chatbot:local
+   ```
+
+2. **API Connection Issues in Container**: Ensure network settings allow outbound connections:
+   ```bash
+   # Test network connectivity from within container
+   docker exec -it container_name curl -v https://api.openai.com
+   ```
+
 ## Resources
 
 ### Azure DevOps Resources

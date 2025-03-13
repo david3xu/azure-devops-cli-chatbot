@@ -135,3 +135,84 @@ If workflows fail, check:
 3. **Docker Build Issues**: Make sure Dockerfile is correct
 4. **Deployment Failures**: Check Azure credentials and App Service configuration
 5. **Health Check Failures**: Verify that the application starts correctly 
+
+## Local Testing Before Pushing
+
+Before pushing changes that trigger the CI/CD workflows, test your changes locally to ensure they pass:
+
+### Testing Locally
+
+#### 1. Run Linting Checks
+
+```bash
+# Install flake8 if needed
+pip install flake8
+
+# Run critical error check
+flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+# Run full style check (optional)
+flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
+
+# Run just on source code to avoid dependency issues
+flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+```
+
+#### 2. Run Tests
+
+```bash
+# Install pytest and coverage
+pip install pytest pytest-cov
+
+# Run tests with coverage
+export PYTHONPATH=$PWD && python -m pytest src/tests/ --cov=src --cov-report=term
+```
+
+#### 3. Build and Test Docker Image
+
+```bash
+# Build development image
+docker build --target development -t devops-chatbot:local .
+
+# Test the built image works
+docker run --rm -it devops-chatbot:local python -c "import sys; print(f'Python version: {sys.version}'); import src; print('Successfully imported src package')"
+
+# Start the API server in a container
+docker run --rm -d -p 8001:8001 --name devops-api devops-chatbot:local python -m uvicorn src.chatbot.api.endpoints.main:app --host 0.0.0.0 --port 8001
+
+# Test the health endpoint
+curl -X GET http://localhost:8001/health
+
+# Test the chat endpoint (learn mode)
+curl -X POST http://localhost:8001/chat -H "Content-Type: application/json" -d '{"message": "What is Azure DevOps?", "mode": "learn"}'
+
+# Clean up
+docker stop devops-api
+```
+
+### Testing GitHub Actions Locally
+
+You can also test GitHub Actions workflows locally using [act](https://github.com/nektos/act):
+
+```bash
+# Install act
+# On macOS: brew install act
+# On Linux: curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+
+# Run the entire CI workflow
+act -j test
+
+# Run specific jobs
+act -j lint
+act -j build
+
+# Run with specific event
+act pull_request -j test
+```
+
+When using `act`, remember that:
+- You might need to provide secrets in a `.secrets` file
+- Some GitHub-specific features might not work locally
+- Running with `-n` performs a dry run without executing actions
+
+By testing locally first, you can catch issues before they trigger the CI/CD workflow, saving time and ensuring smooth deployments. 
