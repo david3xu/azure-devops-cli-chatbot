@@ -80,4 +80,8 @@ docker-compose.override.yml
 .azure/
 
 # Misc
-.tmp/ 
+.tmp/
+
+# Ignore all markdown files except README.md
+*.md
+!README.md 
