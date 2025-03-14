@@ -84,4 +84,8 @@ docker-compose.override.yml
 
 # Ignore all markdown files except README.md
 *.md
-!README.md 
+!README.md
+
+# Project specific
+docs/rca_project/ 
+docs
