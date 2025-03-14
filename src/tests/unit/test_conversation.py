@@ -5,6 +5,7 @@ import json
 import unittest
 import sys
 import os
+import pytest
 from unittest.mock import MagicMock, patch
 
 # Fix import path
@@ -12,7 +13,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from src.chatbot.models.conversation import Conversation, Message
 
 # Skip tests if Azure OpenAI API key is not set
-import pytest
 from src.chatbot.config.settings import settings
 
 # Use pytest.mark.skipif to skip tests if Azure OpenAI API key is not set
@@ -20,6 +20,9 @@ needs_azure_openai = pytest.mark.skipif(
     not settings.AZURE_OPENAI_API_KEY,
     reason="Azure OpenAI API key not set, skipping tests that require API access"
 )
+
+# Add pytest configuration
+pytest_plugins = ['pytest_asyncio']
 
 class TestMessage(unittest.TestCase):
     """Test cases for the Message class."""
@@ -77,23 +80,6 @@ class TestConversation(unittest.TestCase):
         self.assertEqual(messages[0]["role"], "system")
         self.assertEqual(messages[1]["role"], "user")
         
-    @needs_azure_openai
-    def test_get_response_real(self):
-        """Test getting a response from the API using real Azure OpenAI credentials."""
-        # This test will be skipped if Azure OpenAI API key is not set
-        self.conversation.add_message("user", "What is Azure DevOps?")
-        response = self.conversation.get_response()
-        
-        # Check that we got a response
-        self.assertIsNotNone(response)
-        self.assertTrue(isinstance(response, str))
-        self.assertTrue(len(response) > 0)
-        
-        # Check that the response was added to the conversation
-        self.assertEqual(len(self.conversation.messages), 3)
-        self.assertEqual(self.conversation.messages[2].role, "assistant")
-        self.assertEqual(self.conversation.messages[2].content, response)
-        
     def test_to_json(self):
         """Test converting a conversation to JSON."""
         self.conversation.add_message("user", "Hello")
@@ -133,6 +119,27 @@ class TestConversation(unittest.TestCase):
         
         self.assertEqual(len(self.conversation.messages), 1)
         self.assertEqual(self.conversation.messages[0].role, "system")
+
+
+# Standalone async pytest-style test function for better asyncio compatibility
+@needs_azure_openai
+@pytest.mark.asyncio
+async def test_get_response_real():
+    """Test getting a response from the API using real Azure OpenAI credentials."""
+    # This test will be skipped if Azure OpenAI API key is not set
+    conversation = Conversation(system_prompt="You are a helpful assistant.")
+    conversation.add_message("user", "What is Azure DevOps?")
+    response = await conversation.get_response()
+    
+    # Check that we got a response
+    assert response is not None
+    assert isinstance(response, str)
+    assert len(response) > 0
+    
+    # Check that the response was added to the conversation
+    assert len(conversation.messages) == 3
+    assert conversation.messages[2].role == "assistant"
+    assert conversation.messages[2].content == response
 
 
 if __name__ == "__main__":
