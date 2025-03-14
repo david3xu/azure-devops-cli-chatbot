@@ -443,7 +443,10 @@ See [COMMAND_EXECUTION.md](COMMAND_EXECUTION.md) for detailed documentation of a
 The project includes unit and integration tests using pytest:
 
 ```bash
-# Run all tests
+# Quick and easy way to run tests (automatically sets PYTHONPATH and adds coverage)
+./run_tests.sh
+
+# Run all tests (note: test_execution.py is excluded by default in pytest.ini)
 python -m pytest
 
 # Run only unit tests
@@ -452,9 +455,14 @@ python -m pytest src/tests/unit
 # Run with coverage report
 python -m pytest --cov=src --cov-report=term --cov-report=html
 
+# Run tests with custom options (passing additional options to the test script)
+./run_tests.sh -v --cov-report=html
+
 # Continuous test watching during development
 pytest-watch
 ```
+
+The project includes async tests using pytest-asyncio. These are configured in pytest.ini with proper asyncio settings.
 
 ## Implementation Progress
 
@@ -961,7 +969,12 @@ Before pushing changes to GitHub, test your workflow locally:
 
 2. **Run Tests**:
    ```bash
+   # Using the convenient test script (automatically excludes test_execution.py)
+   ./run_tests.sh
+   
+   # Or manually with pytest
    pip install pytest pytest-cov
+   export PYTHONPATH=$PWD
    pytest src/tests/ --cov=src --cov-report=term
    ```
 
