@@ -29,6 +29,36 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
       
+      - name: Test local health endpoint
+        run: |
+          echo "Building Docker image locally to test health endpoint..."
+          docker build -t devops-chatbot:test .
+          
+          echo "Running container with test environment variables..."
+          docker run -d --name test-chatbot -p 8001:8001 \
+            -e AZURE_OPENAI_API_KEY="test" \
+            -e AZURE_OPENAI_ENDPOINT="https://test.openai.azure.com" \
+            -e AZURE_OPENAI_DEPLOYMENT_NAME="test" \
+            -e AZURE_OPENAI_API_VERSION="2023-05-15" \
+            devops-chatbot:test
+          
+          echo "Waiting for container to start..."
+          sleep 30
+          
+          echo "Testing health endpoint locally..."
+          curl -v http://localhost:8001/health || {
+            echo "Local health check failed! Checking container logs:"
+            docker logs test-chatbot
+            echo "Stopping container..."
+            docker stop test-chatbot
+            docker rm test-chatbot
+            exit 1
+          }
+          
+          echo "Local health check succeeded! Cleaning up..."
+          docker stop test-chatbot
+          docker rm test-chatbot
+      
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
