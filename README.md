@@ -119,6 +119,43 @@ docker logs devops-api
 docker stop devops-api
 ```
 
+### Option 4: Using Deployed App
+
+After setting up the CI/CD pipeline (see [CI_CD_SETUP.md](CI_CD_SETUP.md)), you can test the deployed app:
+
+```bash
+# Check health endpoints
+curl -v https://uwachatbot-dev.azurewebsites.net/health
+curl -v https://uwachatbot-prod.azurewebsites.net/health
+
+# Test the chat API (development)
+curl -X POST https://uwachatbot-dev.azurewebsites.net/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What is Azure DevOps?",
+    "conversation_id": "test-session-1",
+    "mode": "learn"
+  }'
+
+# Test follow-up question (demonstrating context)
+curl -X POST https://uwachatbot-dev.azurewebsites.net/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "How do I create a repository?",
+    "conversation_id": "test-session-1",
+    "mode": "learn"
+  }'
+
+# Test command execution (if configured)
+curl -X POST https://uwachatbot-dev.azurewebsites.net/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "List all repositories",
+    "conversation_id": "execute-session-1",
+    "mode": "execute"
+  }'
+```
+
 > **Note on Environment Variables**: Make sure your `.env` file contains all required variables. If you don't have a `.env` file, you can pass environment variables directly:
 > ```bash
 > docker run -p 8001:8001 \
