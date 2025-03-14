@@ -62,6 +62,86 @@ curl -X POST http://localhost:8000/chat \
   -d '{"message": "What is Azure DevOps?", "mode": "learn"}'
 ```
 
+### Option 4: Using Deployed App
+
+After setting up the CI/CD pipeline (see [CI_CD_SETUP.md](docs-updates/CI_CD_SETUP.md)), you can test the deployed app:
+
+```bash
+# Check health endpoints
+curl -v https://uwachatbot-dev.azurewebsites.net/health
+curl -v https://uwachatbot-prod.azurewebsites.net/health
+
+# Test the chat API (development)
+curl -X POST https://uwachatbot-dev.azurewebsites.net/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What is Azure DevOps?",
+    "conversation_id": "test-session-1",
+    "mode": "learn"
+  }'
+
+# Test follow-up question (demonstrating context)
+curl -X POST https://uwachatbot-dev.azurewebsites.net/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "How do I create a repository?",
+    "conversation_id": "test-session-1",
+    "mode": "learn"
+  }'
+
+# Test command execution (if configured)
+curl -X POST https://uwachatbot-dev.azurewebsites.net/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "List all repositories",
+    "conversation_id": "execute-session-1",
+    "mode": "execute"
+  }'
+```
+
+#### Testing with Swagger UI
+
+For a more interactive testing experience:
+
+1. Open the Swagger UI in your browser:
+   - Development: https://uwachatbot-dev.azurewebsites.net/docs
+   - Production: https://uwachatbot-prod.azurewebsites.net/docs
+
+2. Navigate to the `/chat` endpoint and click **Try it out**
+
+3. Enter your request body:
+   ```json
+   {
+     "message": "What is Azure DevOps?",
+     "conversation_id": "browser-test-1",
+     "mode": "learn"
+   }
+   ```
+
+4. Click **Execute** and view the response
+
+#### Testing with Postman
+
+For more advanced API testing:
+
+1. Open Postman and create a new request:
+   - Method: `POST`
+   - URL: `https://uwachatbot-dev.azurewebsites.net/chat`
+   - Headers: Add `Content-Type: application/json`
+
+2. In the **Body** tab, select **raw** and **JSON**, then enter:
+   ```json
+   {
+     "message": "What is Azure DevOps?",
+     "conversation_id": "postman-test-1",
+     "mode": "learn"
+   }
+   ```
+
+3. Click **Send** and check the response
+
+4. For testing conversation context, keep the same `conversation_id` in subsequent requests
+
 ### 💡 Important Note
 
 The chatbot works perfectly fine in **learn-only mode** without actual command execution. This mode explains Azure DevOps CLI commands without attempting to execute them.
