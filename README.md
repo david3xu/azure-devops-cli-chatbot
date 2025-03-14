@@ -64,7 +64,7 @@ curl -X POST http://localhost:8000/chat \
 
 ### Option 4: Using Deployed App
 
-After setting up the CI/CD pipeline (see [CI_CD_SETUP.md](docs-updates/CI_CD_SETUP.md)), you can test the deployed app:
+After setting up the CI/CD pipeline (see [CI_CD_SETUP.md](docs/CI_CD_SETUP.md)), you can test the deployed app:
 
 ```bash
 # Check health endpoints
@@ -152,10 +152,10 @@ To use learn-only mode:
 
 ## Full Documentation
 
-For complete documentation, see the following resources in the `docs-updates` directory:
+For complete documentation, see the following resources in the `docs` directory:
 
-- [Full Documentation](docs-updates/FULL_DOCUMENTATION.md) - Complete project documentation
-- [Development Workflow](docs-updates/DEVELOPMENT_WORKFLOW.md) - Guide for developers
-- [Command Execution](docs-updates/COMMAND_EXECUTION.md) - Details on command execution features
-- [CI/CD Setup](docs-updates/CI_CD_SETUP.md) - CI/CD pipeline configuration
-- [Local Workflow](docs-updates/LOCAL_WORKFLOW.md) - Local development workflow 
+- [Full Documentation](docs/FULL_DOCUMENTATION.md) - Complete project documentation
+- [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md) - Guide for developers
+- [Command Execution](docs/COMMAND_EXECUTION.md) - Details on command execution features
+- [CI/CD Setup](docs/CI_CD_SETUP.md) - CI/CD pipeline configuration
+- [Local Workflow](docs/LOCAL_WORKFLOW.md) - Local development workflow 
