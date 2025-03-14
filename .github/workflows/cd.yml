@@ -47,8 +47,24 @@ jobs:
       
       - name: Run Health Check
         run: |
-          sleep 60  # Wait for deployment to be ready
-          curl -f https://uwachatbot-dev.azurewebsites.net/health || exit 1
+          echo "Waiting for container to start - this may take several minutes for cold starts..."
+          
+          # Wait longer - up to 5 minutes with checks every 30 seconds
+          for i in {1..10}; do
+            echo "Attempt $i/10: Checking if app is ready..."
+            
+            if curl -s -f https://uwachatbot-dev.azurewebsites.net/health; then
+              echo "Health check succeeded!"
+              exit 0
+            fi
+            
+            echo "Not ready yet, waiting 30 seconds..."
+            sleep 30
+          done
+          
+          echo "Health check failed after 5 minutes. Checking container logs..."
+          echo "Try accessing the app manually at: https://uwachatbot-dev.azurewebsites.net/health"
+          exit 1
   
   deploy-prod:
     name: Deploy to Production
@@ -71,5 +87,21 @@ jobs:
       
       - name: Run Health Check
         run: |
-          sleep 60  # Wait for deployment to be ready
-          curl -f https://uwachatbot-prod.azurewebsites.net/health || exit 1
+          echo "Waiting for container to start - this may take several minutes for cold starts..."
+          
+          # Wait longer - up to 5 minutes with checks every 30 seconds
+          for i in {1..10}; do
+            echo "Attempt $i/10: Checking if app is ready..."
+            
+            if curl -s -f https://uwachatbot-prod.azurewebsites.net/health; then
+              echo "Health check succeeded!"
+              exit 0
+            fi
+            
+            echo "Not ready yet, waiting 30 seconds..."
+            sleep 30
+          done
+          
+          echo "Health check failed after 5 minutes. Checking container logs..."
+          echo "Try accessing the app manually at: https://uwachatbot-prod.azurewebsites.net/health"
+          exit 1
