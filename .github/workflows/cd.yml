@@ -72,4 +72,4 @@ jobs:
       - name: Run Health Check
         run: |
           sleep 60  # Wait for deployment to be ready
-          curl -f https://uwachatbot-prod.azurewebsites.net/health || exit 1 
+          curl -f https://uwachatbot-prod.azurewebsites.net/health || exit 1
