@@ -6,6 +6,16 @@ import os
 import sys
 import time
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env.azure
+env_file = os.path.join(Path(__file__).resolve().parent.parent.parent.parent, '.env.azure')
+if os.path.exists(env_file):
+    print(f"Loading environment from {env_file}")
+    load_dotenv(env_file)
+else:
+    print(f"ERROR: .env.azure file not found at {env_file}")
+    sys.exit(1)
 
 # Add the project root to the Python path
 project_root = Path(__file__).resolve().parent.parent.parent.parent

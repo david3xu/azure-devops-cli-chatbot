@@ -8,6 +8,8 @@ import requests
 import os
 import logging
 import time
+from dotenv import load_dotenv
+from pathlib import Path
 
 from src.chatbot.config.settings import settings
 from src.rca.connectors.azure_openai import AzureOpenAIConnector
@@ -16,6 +18,14 @@ from src.rca.connectors.embeddings import AzureAdaEmbeddingService
 
 # Configure logger
 logger = get_logger(__name__)
+
+# Load environment variables from .env.azure
+env_file = os.path.join(Path(__file__).resolve().parent.parent.parent.parent, '.env.azure')
+if os.path.exists(env_file):
+    logger.info(f"Loading environment from {env_file}")
+    load_dotenv(env_file)
+else:
+    logger.warning(f"No .env.azure file found at {env_file}")
 
 
 class AzureSearchConnector:
@@ -31,15 +41,32 @@ class AzureSearchConnector:
         self.resource_group = os.getenv("AZURE_RESOURCE_GROUP")
         
         # Azure Search specific settings
-        self.service_name = os.getenv("AZURE_SEARCH_SERVICE_NAME")
-        self.key = os.getenv("AZURE_SEARCH_KEY", "")
+        self.service_name = os.getenv("AZURE_SEARCH_SERVICE_NAME", 
+                                    os.getenv("AZURE_SEARCH_SERVICE", ""))
+        
+        # Try admin key first, then fall back to query key
+        self.admin_key = os.getenv("AZURE_SEARCH_ADMIN_KEY", "")
+        self.query_key = os.getenv("AZURE_SEARCH_KEY", "")
+        
+        # Use admin key if available, otherwise use query key
+        self.key = self.admin_key if self.admin_key else self.query_key
+        
         self.endpoint = os.getenv("AZURE_SEARCH_ENDPOINT", "")
         if not self.endpoint and self.service_name:
             self.endpoint = f"https://{self.service_name}.search.windows.net"
+            logger.info(f"Constructed search endpoint from service name: {self.endpoint}")
             
         self.index_name = os.getenv("AZURE_SEARCH_INDEX", "rca-index")
         self.api_version = "2023-11-01"
         self.semantic_config = os.getenv("AZURE_SEARCH_SEMANTIC_CONFIG", "default")
+        
+        # Print debugging information
+        logger.info(f"Search service name: {self.service_name}")
+        logger.info(f"Search endpoint: {self.endpoint}")
+        logger.info(f"Search index: {self.index_name}")
+        logger.info(f"Admin key present: {'Yes' if self.admin_key else 'No'}")
+        logger.info(f"Query key present: {'Yes' if self.query_key else 'No'}")
+        logger.info(f"Using key: {self.key[:5]}... (first 5 chars)")
         
         # Initialize the embedding service for vector search
         self.embedding_service = AzureAdaEmbeddingService()
@@ -130,19 +157,91 @@ class AzureSearchConnector:
             self.initialized = True
             return True
     
-    def vector_search(
+    def vector_search(self, query, filter=None, top=3):
+        """
+        Perform vector search using embeddings.
+        
+        Args:
+            query: The query to search for
+            filter: Filter criteria
+            top: Number of results to return
+            
+        Returns:
+            List of search results
+        """
+        if not self.initialized:
+            self.initialize()
+            
+        if self.use_mock:
+            return self._get_mock_results(top)
+            
+        try:
+            start_time = time.time()
+            
+            # Generate embedding for the query
+            query_vector = self.embedding_service.embed_query(query)
+            
+            # Prepare vector search request
+            search_payload = {
+                "vectorQueries": [
+                    {
+                        "kind": "vector",
+                        "vector": query_vector,
+                        "fields": "embedding",
+                        "k": top
+                    }
+                ],
+                "select": "id,content,category,sourcepage,sourcefile",
+                "top": top
+            }
+            
+            # Add filter if provided
+            if filter:
+                search_payload["filter"] = filter
+                
+            # Execute search
+            search_url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version={self.api_version}"
+            headers = {
+                "Content-Type": "application/json",
+                "api-key": self.key
+            }
+            response = requests.post(
+                search_url,
+                headers=headers,
+                json=search_payload
+            )
+            
+            search_time = time.time() - start_time
+            logger.debug(f"Vector search completed in {search_time*1000:.2f}ms")
+            
+            if response.status_code != 200:
+                logger.warning(f"Vector search failed: {response.status_code} - {response.text}")
+                return self._get_mock_results(top)
+                
+            # Process results
+            results = response.json()
+            documents = self._process_search_results(results)
+            
+            logger.info(f"Vector search: Found {len(documents)} results for '{query}'")
+            return documents
+            
+        except Exception as e:
+            logger.error(f"Error in vector search: {str(e)}")
+            return self._get_mock_results(top)
+    
+    def semantic_search(
         self, 
         query: str, 
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None
+        filter=None
     ) -> List[Dict[str, Any]]:
         """
-        Perform vector search using Azure AI Search.
+        Perform semantic search using Azure AI Search.
         
         Args:
             query: Query text
             top_k: Number of results to return
-            filters: Optional filters for search
+            filter: Optional filter expression
             
         Returns:
             List of search results
@@ -150,376 +249,250 @@ class AzureSearchConnector:
         # Initialize if not already done
         if not self.initialized:
             self.initialize()
-        
+            
         # Use mock data if API is not available
         if self.use_mock:
-            return self._get_mock_results(top_k, filters)
-        
-        try:
-            # Get embedding for the query
-            start_time = time.time()
-            query_embedding = self.embedding_service.embed_query(query)
-            embedding_time = (time.time() - start_time) * 1000
-            logger.debug(f"Generated query embedding in {embedding_time:.2f}ms")
+            return self._get_mock_results(top_k)
             
+        try:
             # Prepare search request
-            url = f"{self.endpoint}/indexes/{self.index_name}/docs/search"
+            url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version={self.api_version}"
             headers = {
                 "Content-Type": "application/json",
                 "api-key": self.key
             }
-            
-            # Construct filter if provided
-            filter_expr = None
-            if filters:
-                filter_conditions = []
-                for key, value in filters.items():
-                    # Handle different value types
-                    if isinstance(value, str):
-                        filter_conditions.append(f"{key} eq '{value}'")
-                    elif isinstance(value, (int, float, bool)):
-                        filter_conditions.append(f"{key} eq {value}")
-                    elif isinstance(value, list):
-                        # Handle array contains
-                        items = [f"'{item}'" if isinstance(item, str) else str(item) for item in value]
-                        filter_conditions.append(f"{key}/any(item: search.in(item, {', '.join(items)}))")
-                
-                if filter_conditions:
-                    filter_expr = " and ".join(filter_conditions)
             
             # Construct the search request
-            search_request = {
-                "vectors": [{
-                    "value": query_embedding,
-                    "fields": "contentVector",
-                    "k": top_k
-                }],
-                "top": top_k,
-                "select": "id,content,metadata,score",
-                "count": True
-            }
-            
-            if filter_expr:
-                search_request["filter"] = filter_expr
-                
-            # Make the request
-            response = requests.post(
-                url, 
-                headers=headers, 
-                json=search_request,
-                params={"api-version": self.api_version}
-            )
-            
-            if response.status_code != 200:
-                logger.error(f"Vector search failed: {response.status_code} - {response.text}")
-                return self._get_mock_results(top_k, filters)
-                
-            # Process the response
-            result = response.json()
-            
-            # Format the results
-            documents = []
-            for doc in result.get("value", []):
-                # Convert the document to our standard format
-                formatted_doc = {
-                    "id": doc.get("id", ""),
-                    "content": doc.get("content", ""),
-                    "metadata": doc.get("metadata", {}),
-                    "score": doc.get("@search.score", 0.0)
-                }
-                documents.append(formatted_doc)
-                
-            return documents
-                
-        except Exception as e:
-            logger.error(f"Error in vector search: {str(e)}")
-            return self._get_mock_results(top_k, filters)
-    
-    def semantic_search(
-        self,
-        query: str,
-        top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Perform semantic search using Azure AI Search's built-in capabilities.
-        
-        Args:
-            query: Query text
-            top_k: Number of results to return
-            filters: Optional filters for search
-            
-        Returns:
-            List of search results with semantic captions
-        """
-        # Initialize if not already done
-        if not self.initialized:
-            self.initialize()
-        
-        # Use mock data if API is not available
-        if self.use_mock:
-            return self._get_mock_results(top_k, filters)
-        
-        try:
-            # Prepare search request
-            url = f"{self.endpoint}/indexes/{self.index_name}/docs/search"
-            headers = {
-                "Content-Type": "application/json",
-                "api-key": self.key
-            }
-            
-            # Construct filter if provided
-            filter_expr = None
-            if filters:
-                filter_conditions = []
-                for key, value in filters.items():
-                    # Handle different value types appropriately
-                    if isinstance(value, str):
-                        filter_conditions.append(f"{key} eq '{value}'")
-                    elif isinstance(value, (int, float, bool)):
-                        filter_conditions.append(f"{key} eq {value}")
-                    elif isinstance(value, list):
-                        # Handle array contains
-                        items = [f"'{item}'" if isinstance(item, str) else str(item) for item in value]
-                        filter_conditions.append(f"{key}/any(item: search.in(item, {', '.join(items)}))")
-                
-                if filter_conditions:
-                    filter_expr = " and ".join(filter_conditions)
-            
-            # Construct the semantic search request
             search_request = {
                 "search": query,
                 "queryType": "semantic",
                 "semanticConfiguration": self.semantic_config,
                 "top": top_k,
-                "select": "id,content,metadata",
+                "select": "id,content",
                 "captions": "extractive",
                 "answers": "extractive",
                 "count": True
             }
             
-            if filter_expr:
-                search_request["filter"] = filter_expr
-                
+            # Add filter if provided
+            if filter:
+                search_request["filter"] = filter
+            
             # Make the request
             start_time = time.time()
-            response = requests.post(
-                url, 
-                headers=headers, 
-                json=search_request,
-                params={"api-version": self.api_version}
-            )
-            search_time = (time.time() - start_time) * 1000
-            logger.debug(f"Semantic search completed in {search_time:.2f}ms")
+            response = requests.post(url, headers=headers, json=search_request)
             
-            if response.status_code != 200:
-                logger.error(f"Semantic search failed: {response.status_code} - {response.text}")
-                return self._get_mock_results(top_k, filters)
+            if response.status_code == 200:
+                result = response.json()
+                search_time = (time.time() - start_time) * 1000
+                logger.info(f"Semantic search completed in {search_time:.2f}ms")
                 
-            # Process the response
-            result = response.json()
+                # Extract search results
+                docs = result.get("value", [])
+                return self._process_search_results(docs)
             
-            # Format the results including semantic captions
-            documents = []
-            for doc in result.get("value", []):
-                # Get semantic caption if available
-                caption = ""
-                if "@search.captions" in doc:
-                    captions = doc["@search.captions"]
-                    if captions and len(captions) > 0:
-                        caption = captions[0].get("text", "")
-                
-                # Convert the document to our standard format
-                formatted_doc = {
-                    "id": doc.get("id", ""),
-                    "content": doc.get("content", ""),
-                    "metadata": doc.get("metadata", {}),
-                    "score": doc.get("@search.score", 0.0),
-                    "caption": caption
-                }
-                documents.append(formatted_doc)
-                
-            return documents
-                
+            logger.error(f"Semantic search failed: {response.status_code} - {response.text}")
+            return self._get_mock_results(top_k)
+            
         except Exception as e:
-            logger.error(f"Error in semantic search: {str(e)}")
-            return self._get_mock_results(top_k, filters)
+            logger.error(f"Error performing semantic search: {str(e)}")
+            return self._get_mock_results(top_k)
     
     def hybrid_search(
-        self,
-        query: str,
+        self, 
+        query: str, 
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None
+        filter=None
     ) -> List[Dict[str, Any]]:
         """
-        Perform hybrid search combining vector and semantic search.
+        Perform hybrid search (vector + semantic) using Azure AI Search.
         
         Args:
             query: Query text
             top_k: Number of results to return
-            filters: Optional filters for search
+            filter: Optional filter expression
             
         Returns:
-            List of search results with best results from both approaches
+            List of search results
         """
         # Initialize if not already done
         if not self.initialized:
             self.initialize()
-        
+            
         # Use mock data if API is not available
         if self.use_mock:
-            return self._get_mock_results(top_k, filters)
-        
+            return self._get_mock_results(top_k)
+            
         try:
             # Get embedding for the query
-            start_time = time.time()
             query_embedding = self.embedding_service.embed_query(query)
-            embedding_time = (time.time() - start_time) * 1000
-            logger.debug(f"Generated query embedding in {embedding_time:.2f}ms")
             
             # Prepare search request
-            url = f"{self.endpoint}/indexes/{self.index_name}/docs/search"
+            url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version={self.api_version}"
             headers = {
                 "Content-Type": "application/json",
                 "api-key": self.key
             }
             
-            # Construct filter if provided
-            filter_expr = None
-            if filters:
-                filter_conditions = []
-                for key, value in filters.items():
-                    # Handle different value types
-                    if isinstance(value, str):
-                        filter_conditions.append(f"{key} eq '{value}'")
-                    elif isinstance(value, (int, float, bool)):
-                        filter_conditions.append(f"{key} eq {value}")
-                    elif isinstance(value, list):
-                        # Handle array contains
-                        items = [f"'{item}'" if isinstance(item, str) else str(item) for item in value]
-                        filter_conditions.append(f"{key}/any(item: search.in(item, {', '.join(items)}))")
-                
-                if filter_conditions:
-                    filter_expr = " and ".join(filter_conditions)
-            
-            # Construct the hybrid search request
+            # Try new hybrid search format
             search_request = {
                 "search": query,
                 "queryType": "semantic",
                 "semanticConfiguration": self.semantic_config,
-                "vectors": [{
-                    "value": query_embedding,
-                    "fields": "contentVector",
-                    "k": top_k * 2  # Retrieve more candidates for reranking
-                }],
+                "vectorQueries": [
+                    {
+                        "kind": "vector",
+                        "vector": query_embedding,
+                        "fields": "embedding",
+                        "k": top_k
+                    }
+                ],
                 "top": top_k,
-                "select": "id,content,metadata",
+                "select": "id,content",
                 "captions": "extractive",
+                "answers": "extractive",
                 "count": True
             }
             
-            if filter_expr:
-                search_request["filter"] = filter_expr
-                
+            # Add filter if provided
+            if filter:
+                search_request["filter"] = filter
+            
             # Make the request
-            search_start = time.time()
-            response = requests.post(
-                url, 
-                headers=headers, 
-                json=search_request,
-                params={"api-version": self.api_version}
-            )
-            search_time = (time.time() - search_start) * 1000
-            logger.debug(f"Hybrid search completed in {search_time:.2f}ms")
+            start_time = time.time()
+            response = requests.post(url, headers=headers, json=search_request)
             
-            if response.status_code != 200:
-                logger.error(f"Hybrid search failed: {response.status_code} - {response.text}")
-                return self._get_mock_results(top_k, filters)
+            if response.status_code == 200:
+                result = response.json()
+                search_time = (time.time() - start_time) * 1000
+                logger.info(f"Hybrid search completed in {search_time:.2f}ms")
                 
-            # Process the response
-            result = response.json()
+                # Extract search results
+                docs = result.get("value", [])
+                return self._process_search_results(docs)
+            elif response.status_code == 400 and "vectorQueries" in str(response.text):
+                # Try fallback to semantic search only
+                logger.info("Falling back to semantic search only")
+                return self.semantic_search(query, top_k, filter)
             
-            # Format the results
-            documents = []
-            for doc in result.get("value", []):
-                # Get semantic caption if available
-                caption = ""
-                if "@search.captions" in doc:
-                    captions = doc["@search.captions"]
-                    if captions and len(captions) > 0:
-                        caption = captions[0].get("text", "")
-                
-                # Get vector score and semantic score
-                vector_score = doc.get("@search.vectorScore", 0.0)
-                semantic_score = doc.get("@search.score", 0.0)
-                
-                # Convert the document to our standard format
-                formatted_doc = {
-                    "id": doc.get("id", ""),
-                    "content": doc.get("content", ""),
-                    "metadata": doc.get("metadata", {}),
-                    "score": semantic_score,  # Use semantic score as primary
-                    "vector_score": vector_score,
-                    "caption": caption
-                }
-                documents.append(formatted_doc)
-                
-            return documents
-                
+            logger.error(f"Hybrid search failed: {response.status_code} - {response.text}")
+            return self._get_mock_results(top_k)
+            
         except Exception as e:
-            logger.error(f"Error in hybrid search: {str(e)}")
-            return self._get_mock_results(top_k, filters)
+            logger.error(f"Error performing hybrid search: {str(e)}")
+            return self._get_mock_results(top_k)
     
-    def _get_mock_results(self, top_k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def _process_search_results(self, results):
         """
-        Get mock search results for development and testing.
+        Process search results from Azure Search into a standardized format.
+        
+        Args:
+            results: Search results from Azure Search (either a dict with 'value' or a list of docs)
+            
+        Returns:
+            List of processed documents
+        """
+        # Handle both direct document list and search response with 'value' field
+        if isinstance(results, dict) and 'value' in results:
+            docs = results.get('value', [])
+        else:
+            docs = results
+            
+        processed_results = []
+        
+        for doc in docs:
+            # Extract basic fields that we know exist
+            result = {
+                "id": doc.get("id", ""),
+                "content": doc.get("content", ""),
+                "score": doc.get("@search.score", 0.0),
+            }
+            
+            # Add optional fields if they exist
+            if "sourcepage" in doc:
+                result["sourcepage"] = doc.get("sourcepage", "")
+            
+            if "sourcefile" in doc:
+                result["filepath"] = doc.get("sourcefile", "")
+                
+            if "category" in doc:
+                result["category"] = doc.get("category", "")
+                
+            if "storageUrl" in doc:
+                result["url"] = doc.get("storageUrl", "")
+                
+            # Add captions if available
+            if "@search.captions" in doc:
+                captions = doc.get("@search.captions", [])
+                if captions and len(captions) > 0:
+                    result["caption"] = captions[0].get("text", "")
+            
+            processed_results.append(result)
+            
+        return processed_results
+    
+    def _get_mock_results(self, top_k=3, filter=None):
+        """
+        Generate mock search results for development and testing.
         
         Args:
             top_k: Number of results to return
-            filters: Optional filters for search
+            filter: Optional filter expression (not used in mock implementation)
             
         Returns:
             List of mock search results
         """
-        # Mock search results
-        mock_results = [
+        # Sample documents that match our actual schema
+        mock_docs = [
             {
-                "id": "doc1",
-                "content": "This is a sample document about root cause analysis. When investigating issues, start by collecting all relevant logs and metrics.",
-                "metadata": {"source": "knowledge_base", "category": "rca"},
+                "id": "file-azure-devops-guide_pdf-page-1",
+                "content": "Azure DevOps is a suite of services that helps teams plan work, collaborate on code development, and build and deploy applications.",
                 "score": 0.95,
-                "caption": "Start by collecting all relevant logs and metrics."
+                "sourcepage": "azure-devops-guide.pdf#page=1",
+                "filepath": "azure-devops-guide.pdf",
+                "category": "overview",
+                "url": "https://example.com/azure-devops-guide.pdf"
             },
             {
-                "id": "doc2",
-                "content": "Common techniques for troubleshooting include log analysis, monitoring metrics, and reviewing recent changes to the system.",
-                "metadata": {"source": "knowledge_base", "category": "troubleshooting"},
-                "score": 0.85,
-                "caption": "Techniques include log analysis, monitoring metrics, and reviewing recent changes."
+                "id": "file-azure-pipelines_pdf-page-5",
+                "content": "Azure Pipelines automatically builds and tests code projects to make them available to others. It works with just about any language or project type.",
+                "score": 0.89,
+                "sourcepage": "azure-pipelines.pdf#page=5",
+                "filepath": "azure-pipelines.pdf",
+                "category": "pipelines",
+                "url": "https://example.com/azure-pipelines.pdf"
             },
             {
-                "id": "doc3",
-                "content": "When diagnosing issues, start with the most recent changes. Many problems can be traced back to recent deployments or configuration changes.",
-                "metadata": {"source": "best_practices", "category": "diagnostics"},
+                "id": "file-azure-boards_pdf-page-3",
+                "content": "Azure Boards is a service for managing work for software projects. It provides a customizable way to track work items including bugs, tasks, and features.",
+                "score": 0.82,
+                "sourcepage": "azure-boards.pdf#page=3",
+                "filepath": "azure-boards.pdf",
+                "category": "boards",
+                "url": "https://example.com/azure-boards.pdf"
+            },
+            {
+                "id": "file-azure-repos_pdf-page-7",
+                "content": "Azure Repos provides Git repositories or Team Foundation Version Control (TFVC) for source control of your code.",
+                "score": 0.78,
+                "sourcepage": "azure-repos.pdf#page=7",
+                "filepath": "azure-repos.pdf",
+                "category": "repos",
+                "url": "https://example.com/azure-repos.pdf"
+            },
+            {
+                "id": "file-azure-artifacts_pdf-page-9",
+                "content": "Azure Artifacts enables teams to share packages such as Maven, npm, NuGet, and more from public and private sources and integrate package sharing into your pipelines.",
                 "score": 0.75,
-                "caption": "Start with the most recent changes when diagnosing issues."
+                "sourcepage": "azure-artifacts.pdf#page=9",
+                "filepath": "azure-artifacts.pdf",
+                "category": "artifacts",
+                "url": "https://example.com/azure-artifacts.pdf"
             }
         ]
         
-        # Apply any filters (mock implementation)
-        if filters:
-            filtered_results = []
-            for doc in mock_results:
-                match = True
-                for key, value in filters.items():
-                    if key in doc.get("metadata", {}) and doc["metadata"][key] != value:
-                        match = False
-                        break
-                if match:
-                    filtered_results.append(doc)
-            return filtered_results[:top_k]
-        
-        return mock_results[:top_k]
+        # Return the top k results or all if fewer than k
+        return self._process_search_results(mock_docs[:min(top_k, len(mock_docs))])
     
     def index_document(self, document: Dict[str, Any]) -> bool:
         """

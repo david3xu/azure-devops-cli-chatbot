@@ -9,12 +9,21 @@ import logging
 import requests
 import numpy as np
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from dotenv import load_dotenv
+from pathlib import Path
 
 from src.rca.utils.logging import get_logger
 
 # Configure logger
 logger = get_logger(__name__)
 
+# Load environment variables from .env.azure
+env_file = os.path.join(Path(__file__).resolve().parent.parent.parent.parent, '.env.azure')
+if os.path.exists(env_file):
+    logger.info(f"Loading environment from {env_file}")
+    load_dotenv(env_file)
+else:
+    logger.warning(f"No .env.azure file found at {env_file}")
 
 class AzureAdaEmbeddingService:
     """
@@ -27,12 +36,27 @@ class AzureAdaEmbeddingService:
         # Azure OpenAI settings from environment variables
         self.api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
         self.endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+        
+        # If endpoint is not specified but service name is, construct the endpoint
+        if not self.endpoint:
+            service_name = os.getenv("AZURE_OPENAI_SERVICE", "")
+            if service_name:
+                self.endpoint = f"https://{service_name}.openai.azure.com/"
+                logger.info(f"Constructed endpoint from service name: {self.endpoint}")
+        
         self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2023-05-15")
         
-        # Deployment settings
-        self.embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
-        self.embedding_model = os.getenv("AZURE_OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002")
+        # Deployment settings - check both variable names
+        self.embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", 
+                                           os.getenv("AZURE_OPENAI_EMB_DEPLOYMENT", "text-embedding-ada-002"))
+        self.embedding_model = os.getenv("AZURE_OPENAI_EMBEDDING_MODEL", 
+                                      os.getenv("AZURE_OPENAI_EMB_MODEL_NAME", "text-embedding-ada-002"))
         self.embedding_dimension = 1536  # Default for Ada embedding model
+        
+        # Print information for debugging
+        logger.info(f"Embedding deployment: {self.embedding_deployment}")
+        logger.info(f"Embedding endpoint: {self.endpoint}")
+        logger.info(f"API key present: {'Yes' if self.api_key else 'No'}")
         
         # Request settings
         self.max_token_limit = 8191  # Maximum token limit for Ada model
@@ -41,7 +65,7 @@ class AzureAdaEmbeddingService:
         
         # Tracking successful initialization
         self.initialized = False
-        self.use_mock = False
+        self.use_mock = os.getenv("USE_MOCK_SERVICES", "").lower() == "true"
     
     def initialize(self) -> bool:
         """
