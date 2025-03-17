@@ -1,15 +1,13 @@
 """
 Comprehensive backward compatibility tests for the RCAAgent class.
 These tests verify that all public interfaces remain stable when implementing Milestone 2 features.
-Uses actual Azure services to provide real-world validation when available,
-or falls back to mock responses in CI/CD environments.
+Uses actual Azure services to provide real-world validation.
 """
 import os
 import sys
 import time
 from pathlib import Path
 import unittest
-from unittest.mock import patch, MagicMock
 from typing import Dict, Any, List
 from dotenv import load_dotenv
 
@@ -27,17 +25,12 @@ from src.rca.connectors.azure_openai import AzureOpenAIConnector
 from src.rca.connectors.embeddings import AzureAdaEmbeddingService
 
 
-def is_running_in_ci():
-    """Detect if running in a CI environment (GitHub Actions)"""
-    return os.environ.get('CI') == 'true' or os.environ.get('GITHUB_ACTIONS') == 'true'
-
-
 class TestRCAAgentBackwardCompatibility(unittest.TestCase):
-    """Test suite for ensuring RCAAgent backward compatibility with real Azure services when available"""
+    """Test suite for ensuring RCAAgent backward compatibility with real Azure services"""
     
     @classmethod
     def setUpClass(cls):
-        """Set up test environment with real Azure services or mocks in CI"""
+        """Set up test environment with real Azure services"""
         # Load environment variables from .env.azure file
         env_file = os.path.join(project_root, ".env.azure")
         if os.path.exists(env_file):
@@ -45,20 +38,6 @@ class TestRCAAgentBackwardCompatibility(unittest.TestCase):
             load_dotenv(env_file)
         else:
             print("Warning: .env.azure file not found")
-        
-        cls.use_mock_services = is_running_in_ci()
-        if cls.use_mock_services:
-            print("Running in CI environment - using mock services")
-            
-            # Set dummy environment variables for mock services
-            os.environ["AZURE_OPENAI_API_KEY"] = "dummy-key"
-            os.environ["AZURE_OPENAI_ENDPOINT"] = "https://dummy-endpoint.openai.azure.com"
-            os.environ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"] = "dummy-embedding"
-            os.environ["AZURE_SEARCH_ADMIN_KEY"] = "dummy-search-key"
-            os.environ["AZURE_SEARCH_ENDPOINT"] = "https://dummy-search.search.windows.net"
-            os.environ["AZURE_SEARCH_INDEX"] = "dummy-index"
-            os.environ["AZURE_SEARCH_API_VERSION"] = "2023-11-01"
-            os.environ["AZURE_OPENAI_CHATGPT_DEPLOYMENT"] = "gpt-dummy"
             
         # Initialize real connectors
         cls.search_connector = AzureSearchConnector()
@@ -66,42 +45,41 @@ class TestRCAAgentBackwardCompatibility(unittest.TestCase):
         cls.embedding_service = AzureAdaEmbeddingService()
         
         # Verify connectivity to Azure services
-        if not cls.use_mock_services:
-            try:
-                search_connection_test = cls.search_connector.service_name
-                print(f"Successfully connected to Azure Search service: {search_connection_test}")
-            except Exception as e:
-                print(f"WARNING: Failed to connect to Azure Search: {str(e)}")
-                
-            try:
-                # Simple embedding test to verify OpenAI connectivity
-                test_embedding = cls.embedding_service.embed_query("Test query")
-                print(f"Successfully connected to Azure OpenAI (embedding dimension: {len(test_embedding)})")
-            except Exception as e:
-                print(f"WARNING: Failed to connect to Azure OpenAI: {str(e)}")
+        try:
+            search_connection_test = cls.search_connector.service_name
+            print(f"Successfully connected to Azure Search service: {search_connection_test}")
+        except Exception as e:
+            print(f"WARNING: Failed to connect to Azure Search: {str(e)}")
+            
+        try:
+            # Simple embedding test to verify OpenAI connectivity
+            test_embedding = cls.embedding_service.embed_query("Test query")
+            print(f"Successfully connected to Azure OpenAI (embedding dimension: {len(test_embedding)})")
+        except Exception as e:
+            print(f"WARNING: Failed to connect to Azure OpenAI: {str(e)}")
     
     def setUp(self):
-        """Set up test instance with real tools or mock tools depending on environment"""
-        # Create tools using real or mock connectors
+        """Set up test instance with real tools and services"""
+        # Create real tools using real connectors
         self.vector_search_tool = VectorSearchTool()
         self.document_ranking_tool = DocumentRankingTool()
         self.response_generation_tool = ResponseGenerationTool()
         
-        self.tools = {
+        self.real_tools = {
             "vector_search": self.vector_search_tool,
             "document_ranking": self.document_ranking_tool,
             "response_generation": self.response_generation_tool
         }
         
         self.tracker = WorkflowTracker()
-        self.agent = RCAAgent(tools=self.tools, tracker=self.tracker)
+        self.agent = RCAAgent(tools=self.real_tools, tracker=self.tracker)
         
         # Test query to use in tests
         self.test_query = "What is Azure DevOps?"
 
     def test_init_with_custom_tools(self):
         """Test that agent initializes correctly with custom tools"""
-        agent = RCAAgent(tools=self.tools)
+        agent = RCAAgent(tools=self.real_tools)
         self.assertEqual(agent.tools["vector_search"].__class__, VectorSearchTool)
         self.assertEqual(agent.tools["document_ranking"].__class__, DocumentRankingTool)
         self.assertEqual(agent.tools["response_generation"].__class__, ResponseGenerationTool)
@@ -142,14 +120,10 @@ class TestRCAAgentBackwardCompatibility(unittest.TestCase):
             print(f"Response length: {len(result['response'])} characters")
             print(f"Confidence score: {result['confidence_score']}")
             
-            # When in CI, we know we're using mocks, so adjust assertions
-            if self.__class__.use_mock_services:
-                # Just verify we got a response
-                self.assertGreater(len(result["response"]), 0)
-            else:
-                # In non-CI environments, verify documents and response
-                self.assertGreater(len(result["response"]), 0)
-                self.assertGreater(len(result["documents"]), 0)
+            # Verify that the response is not empty
+            self.assertGreater(len(result["response"]), 0)
+            # Verify that documents were retrieved
+            self.assertGreater(len(result["documents"]), 0)
             
         except Exception as e:
             self.fail(f"Query processing failed with error: {str(e)}")
@@ -166,16 +140,13 @@ class TestRCAAgentBackwardCompatibility(unittest.TestCase):
         self.assertEqual(trace.query, self.test_query)
         
         # Verify there are steps in the trace
-        self.assertGreaterEqual(len(trace.steps), 1)  # At least one step
+        self.assertGreaterEqual(len(trace.steps), 3)  # At least vector search, ranking, and response
         
-        # Check for expected steps
+        # Check for specific steps
         step_names = [step.step_name for step in trace.steps]
         self.assertIn("vector_search", step_names)
-        
-        # In non-CI we should have more complete workflow
-        if not self.__class__.use_mock_services:
-            self.assertIn("document_ranking", step_names)
-            self.assertIn("response_generation", step_names)
+        self.assertIn("document_ranking", step_names)
+        self.assertIn("response_generation", step_names)
 
     def test_tool_execution_sequence(self):
         """Test that tools are executed in the correct sequence by examining trace"""
@@ -186,21 +157,18 @@ class TestRCAAgentBackwardCompatibility(unittest.TestCase):
         # Extract step names
         step_names = [step.step_name for step in trace.steps]
         
-        # Verify the sequence includes vector_search
-        self.assertIn("vector_search", step_names)
-        vector_index = step_names.index("vector_search")
-        
-        # In non-CI environments, test the complete sequence
-        if not self.__class__.use_mock_services:
-            expected_steps = ["vector_search", "document_ranking", "response_generation"]
-            for step in expected_steps:
-                self.assertIn(step, step_names)
-                
-            ranking_index = step_names.index("document_ranking")
-            response_index = step_names.index("response_generation")
+        # Verify the sequence of steps
+        expected_steps = ["vector_search", "document_ranking", "response_generation"]
+        for step in expected_steps:
+            self.assertIn(step, step_names)
             
-            self.assertLess(vector_index, ranking_index)
-            self.assertLess(ranking_index, response_index)
+        # Verify order of steps
+        vector_index = step_names.index("vector_search")
+        ranking_index = step_names.index("document_ranking")
+        response_index = step_names.index("response_generation")
+        
+        self.assertLess(vector_index, ranking_index)
+        self.assertLess(ranking_index, response_index)
 
     def test_error_handling_with_invalid_query(self):
         """Test error handling with an invalid query format"""
@@ -274,7 +242,7 @@ class TestRCAAgentBackwardCompatibility(unittest.TestCase):
         
         # Create extended tools dictionary
         custom_tool = CustomTool()
-        extended_tools = {**self.tools, "custom_tool": custom_tool}
+        extended_tools = {**self.real_tools, "custom_tool": custom_tool}
         
         # Create agent with extended tools
         agent = RCAAgent(tools=extended_tools)
