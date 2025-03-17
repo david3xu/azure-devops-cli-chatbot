@@ -216,6 +216,32 @@ You can run the RAG system endpoints in multiple ways:
 - **Agent with Hybrid Search**: `python -m src.rca.tests.test_agent_hybrid`
 - **Comprehensive Test**: `python -m src.rca.tests.test_all_functionality`
 
+### Regression Testing Framework
+
+The project includes a comprehensive regression testing framework to ensure backward compatibility as we implement new features across milestones. These tests verify that:
+
+- All public interfaces maintain their contracts
+- Existing functionality continues to work when new features are added
+- Error handling works properly across component boundaries
+
+To run regression tests:
+
+```bash
+# Run all regression tests
+python -m pytest src/rca/tests/regression/ -v
+
+# Run with coverage
+python -m pytest src/rca/tests/regression/ --cov=src.rca.agents -v
+```
+
+The regression tests use real Azure services to provide high-confidence validation. See the [Regression Testing README](./tests/regression/README.md) for detailed documentation on:
+
+- Test matrix of all interfaces requiring backward compatibility
+- How to run the tests locally
+- Required environment setup
+- Continuous integration pipeline
+- How to extend the tests for new features
+
 ## Code Examples
 
 ### Basic Vector Search
@@ -342,6 +368,9 @@ Follow these steps to update the codebase:
    # Make your code changes
    # Run tests to verify functionality
    python -m src.rca.tests.test_minimal_rag
+   
+   # Run regression tests to ensure backward compatibility
+   python -m pytest src/rca/tests/regression/ -v
    ```
 
 3. **Commit and push changes**:
@@ -368,4 +397,4 @@ Follow these steps to update the codebase:
    - Fill out PR template with details about your changes
    - Submit the PR for review
 
-The team typically reviews PRs within 2 business days. Make sure all tests pass in the CI/CD pipeline before requesting review. 
+The team typically reviews PRs within 2 business days. Make sure all tests pass in the CI/CD pipeline before requesting review.
