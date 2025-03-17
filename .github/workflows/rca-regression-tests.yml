@@ -1,0 +1,72 @@
+name: RCA Regression Tests
+
+on:
+  push:
+    branches: 
+      - main
+      - feature/milestone*
+    paths:
+      - 'src/rca/**'
+      - '.github/workflows/rca-regression-tests.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/rca/**'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  regression-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        
+    - name: Create env file
+      run: |
+        echo "AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }}" > .env.azure
+        echo "AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}" >> .env.azure
+        echo "AZURE_OPENAI_EMBEDDING_DEPLOYMENT=${{ secrets.AZURE_OPENAI_EMBEDDING_DEPLOYMENT }}" >> .env.azure
+        echo "AZURE_SEARCH_ADMIN_KEY=${{ secrets.AZURE_SEARCH_ADMIN_KEY }}" >> .env.azure
+        echo "AZURE_SEARCH_ENDPOINT=${{ secrets.AZURE_SEARCH_ENDPOINT }}" >> .env.azure
+        echo "AZURE_SEARCH_INDEX=${{ secrets.AZURE_SEARCH_INDEX }}" >> .env.azure
+        echo "AZURE_SEARCH_API_VERSION=${{ secrets.AZURE_SEARCH_API_VERSION }}" >> .env.azure
+        echo "AZURE_OPENAI_CHATGPT_DEPLOYMENT=${{ secrets.AZURE_OPENAI_CHATGPT_DEPLOYMENT }}" >> .env.azure
+        
+    - name: Run regression tests
+      run: |
+        python -m pytest src/rca/tests/regression/ -v --cov=src.rca.agents --cov-report=xml
+        
+    - name: Run core component tests
+      run: |
+        python -m pytest src/rca/tests/test_azuresearch_connector.py src/rca/tests/test_agent_hybrid.py -v
+        
+    - name: Generate backward compatibility report
+      run: |
+        echo "# RCA Backward Compatibility Test Report" > backward_compatibility_report.md
+        echo "Generated on: $(date)" >> backward_compatibility_report.md
+        echo "" >> backward_compatibility_report.md
+        echo "## Test Results" >> backward_compatibility_report.md
+        python -m pytest src/rca/tests/regression/ -v --no-header --no-summary >> backward_compatibility_report.md
+        
+    - name: Upload test coverage report
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: coverage.xml
+        
+    - name: Upload compatibility report
+      uses: actions/upload-artifact@v3
+      with:
+        name: backward-compatibility-report
+        path: backward_compatibility_report.md 
