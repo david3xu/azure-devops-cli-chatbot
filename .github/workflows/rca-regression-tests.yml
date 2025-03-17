@@ -60,13 +60,13 @@ jobs:
         python -m pytest src/rca/tests/regression/ -v --no-header --no-summary >> backward_compatibility_report.md
         
     - name: Upload test coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-report
         path: coverage.xml
         
     - name: Upload compatibility report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: backward-compatibility-report
         path: backward_compatibility_report.md 
