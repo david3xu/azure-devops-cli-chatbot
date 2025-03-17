@@ -14,9 +14,54 @@ on:
       - 'src/rca/**'
   workflow_dispatch:  # Allow manual triggering
 
+# Important: The regression tests require real Azure service credentials
+# You must add the following secrets to your GitHub repository:
+# - AZURE_OPENAI_API_KEY: Your Azure OpenAI API Key
+# - AZURE_OPENAI_ENDPOINT: Your Azure OpenAI Endpoint
+# - AZURE_OPENAI_EMBEDDING_DEPLOYMENT: Your Azure OpenAI Embedding Deployment Name
+# - AZURE_SEARCH_ADMIN_KEY: Your Azure Search Admin Key
+# - AZURE_SEARCH_ENDPOINT: Your Azure Search Endpoint
+# - AZURE_SEARCH_INDEX: Your Azure Search Index Name
+# - AZURE_SEARCH_API_VERSION: Azure Search API Version (e.g., "2023-11-01")
+# - AZURE_OPENAI_CHATGPT_DEPLOYMENT: Your Azure OpenAI ChatGPT Deployment Name
+
 jobs:
+  check-required-secrets:
+    name: Check Required Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Azure Credentials
+        env:
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_SEARCH_ADMIN_KEY: ${{ secrets.AZURE_SEARCH_ADMIN_KEY }}
+          AZURE_SEARCH_ENDPOINT: ${{ secrets.AZURE_SEARCH_ENDPOINT }}
+          AZURE_SEARCH_INDEX: ${{ secrets.AZURE_SEARCH_INDEX }}
+        run: |
+          missing_secrets=()
+          
+          [[ -z "$AZURE_OPENAI_API_KEY" ]] && missing_secrets+=("AZURE_OPENAI_API_KEY")
+          [[ -z "$AZURE_OPENAI_ENDPOINT" ]] && missing_secrets+=("AZURE_OPENAI_ENDPOINT")
+          [[ -z "$AZURE_SEARCH_ADMIN_KEY" ]] && missing_secrets+=("AZURE_SEARCH_ADMIN_KEY")
+          [[ -z "$AZURE_SEARCH_ENDPOINT" ]] && missing_secrets+=("AZURE_SEARCH_ENDPOINT")
+          [[ -z "$AZURE_SEARCH_INDEX" ]] && missing_secrets+=("AZURE_SEARCH_INDEX")
+          
+          if [ ${#missing_secrets[@]} -gt 0 ]; then
+            echo "❌ Error: The following required secrets are missing:"
+            for secret in "${missing_secrets[@]}"; do
+              echo "  - $secret"
+            done
+            echo ""
+            echo "The regression tests use REAL Azure services and require valid credentials."
+            echo "Please add these secrets to your GitHub repository settings."
+            exit 1
+          else
+            echo "✅ All required Azure secrets are present"
+          fi
+
   regression-tests:
     runs-on: ubuntu-latest
+    needs: check-required-secrets
     
     steps:
     - uses: actions/checkout@v3
@@ -44,6 +89,33 @@ jobs:
         echo "AZURE_SEARCH_INDEX=${{ secrets.AZURE_SEARCH_INDEX }}" >> .env.azure
         echo "AZURE_SEARCH_API_VERSION=${{ secrets.AZURE_SEARCH_API_VERSION }}" >> .env.azure
         echo "AZURE_OPENAI_CHATGPT_DEPLOYMENT=${{ secrets.AZURE_OPENAI_CHATGPT_DEPLOYMENT }}" >> .env.azure
+        
+    - name: Validate Azure connections
+      run: |
+        echo "Validating Azure connections..."
+        python -c "
+        import os
+        from dotenv import load_dotenv
+        
+        # Load environment variables
+        load_dotenv('.env.azure')
+        
+        # Check required variables
+        required_vars = [
+            'AZURE_OPENAI_API_KEY', 
+            'AZURE_OPENAI_ENDPOINT',
+            'AZURE_SEARCH_ADMIN_KEY',
+            'AZURE_SEARCH_ENDPOINT',
+            'AZURE_SEARCH_INDEX'
+        ]
+        
+        missing = [var for var in required_vars if not os.getenv(var)]
+        if missing:
+            print(f'❌ Missing required environment variables: {missing}')
+            exit(1)
+            
+        print('✅ All required environment variables are set')
+        "
         
     - name: Run regression tests
       run: |
