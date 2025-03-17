@@ -51,6 +51,18 @@ class AzureAdaEmbeddingService:
                                            os.getenv("AZURE_OPENAI_EMB_DEPLOYMENT", "text-embedding-ada-002"))
         self.embedding_model = os.getenv("AZURE_OPENAI_EMBEDDING_MODEL", 
                                       os.getenv("AZURE_OPENAI_EMB_MODEL_NAME", "text-embedding-ada-002"))
+        
+        # Clean up configuration values
+        self.api_key = self._clean_value(self.api_key)
+        self.endpoint = self._clean_value(self.endpoint)
+        self.api_version = self._clean_value(self.api_version)
+        self.embedding_deployment = self._clean_value(self.embedding_deployment)
+        self.embedding_model = self._clean_value(self.embedding_model)
+        
+        # Clean up endpoint URL (remove trailing slash)
+        if self.endpoint:
+            self.endpoint = self.endpoint.rstrip('/')
+        
         self.embedding_dimension = 1536  # Default for Ada embedding model
         
         # Print information for debugging
@@ -90,7 +102,8 @@ class AzureAdaEmbeddingService:
             
             # Test the embedding API with a direct request (not using embed_query to avoid recursion)
             try:
-                url = f"{self.endpoint}/openai/deployments/{self.embedding_deployment}/embeddings"
+                # Build the URL using our helper method
+                url = self._build_url(f"openai/deployments/{self.embedding_deployment}/embeddings")
                 headers = {
                     "Content-Type": "application/json",
                     "api-key": self.api_key
@@ -242,7 +255,8 @@ class AzureAdaEmbeddingService:
         Returns:
             List of embedding vectors
         """
-        url = f"{self.endpoint}/openai/deployments/{self.embedding_deployment}/embeddings"
+        # Build the URL using our helper method
+        url = self._build_url(f"openai/deployments/{self.embedding_deployment}/embeddings")
         headers = {
             "Content-Type": "application/json",
             "api-key": self.api_key
@@ -302,4 +316,32 @@ class AzureAdaEmbeddingService:
         norm = np.linalg.norm(mock_embedding)
         normalized_embedding = [x / norm for x in mock_embedding]
         
-        return normalized_embedding 
+        return normalized_embedding
+    
+    def _build_url(self, path):
+        """
+        Build a properly formatted URL for Azure OpenAI API.
+        
+        Args:
+            path: API path to append to the endpoint
+            
+        Returns:
+            Formatted URL
+        """
+        endpoint = self.endpoint.rstrip('/')
+        path = path.lstrip('/')
+        return f"{endpoint}/{path}"
+        
+    def _clean_value(self, value):
+        """
+        Clean a configuration value by removing quotes.
+        
+        Args:
+            value: Value to clean
+            
+        Returns:
+            Cleaned value
+        """
+        if value is None:
+            return ""
+        return str(value).replace('"', '') 

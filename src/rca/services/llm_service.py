@@ -65,6 +65,8 @@ class ChatCompletionRequest(BaseModel):
     temperature: float = Field(0.7, description="Sampling temperature for response generation")
     max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
     workflow_tracker: Optional[WorkflowTracker] = Field(None, description="Workflow tracker for tracing execution")
+    
+    model_config = {"arbitrary_types_allowed": True}
 
 
 class ChatCompletionResponse(BaseModel):
@@ -247,10 +249,10 @@ class LLMService:
             
             # Log metrics
             log_conversation_metrics(
-                provider=str(self.provider),
-                model=response.model, 
-                tokens=response.tokens_used,
-                duration_ms=elapsed_ms
+                duration_ms=elapsed_ms,
+                tokens_used=response.tokens_used,
+                success=True,
+                error_type=None
             )
             
             logger.debug(f"Chat completion completed in {elapsed_ms:.2f}ms with {response.tokens_used} tokens")

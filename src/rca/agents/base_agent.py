@@ -85,20 +85,20 @@ class RCAAgent:
                 trace_id=trace_id,
                 step_name="vector_search",
                 inputs=search_inputs,
-                outputs={"documents": search_results.documents},
+                outputs={"documents": search_results.results},
                 metadata={
                     "tool_name": "vector_search", 
-                    "document_count": len(search_results.documents)
+                    "document_count": len(search_results.results)
                 }
             )
             
-            state.context = search_results.documents
+            state.context = search_results.results
             state.tools_used.append("vector_search")
             
             # 3. Rank documents
             ranking_inputs = {
                 "query": query, 
-                "documents": search_results.documents
+                "documents": search_results.results
             }
             
             self.tracker.track_step(
@@ -115,20 +115,20 @@ class RCAAgent:
                 trace_id=trace_id,
                 step_name="document_ranking",
                 inputs=ranking_inputs,
-                outputs={"documents": ranked_docs.documents},
+                outputs={"documents": ranked_docs.results},
                 metadata={
                     "tool_name": "document_ranking",
-                    "document_count": len(ranked_docs.documents)
+                    "document_count": len(ranked_docs.results)
                 }
             )
             
-            state.context = ranked_docs.documents
+            state.context = ranked_docs.results
             state.tools_used.append("document_ranking")
             
             # 4. Generate response
             response_inputs = {
                 "query": query,
-                "documents": ranked_docs.documents
+                "documents": ranked_docs.results
             }
             
             self.tracker.track_step(
@@ -139,36 +139,30 @@ class RCAAgent:
                 metadata={"tool_name": "response_generation"}
             )
             
-            response = self.tools["response_generation"].execute(**response_inputs)
+            response_result = self.tools["response_generation"].execute(**response_inputs)
             
             self.tracker.track_step(
                 trace_id=trace_id,
                 step_name="response_generation",
                 inputs=response_inputs,
-                outputs={
-                    "response": response.response,
-                    "citation_indices": response.citation_indices
-                },
-                metadata={
-                    "tool_name": "response_generation",
-                    "confidence_score": response.confidence_score
-                }
+                outputs={"response": response_result.response},
+                metadata={"tool_name": "response_generation"}
             )
             
-            state.tools_used.append("response_generation")
-            
-            # 5. Prepare final result
-            result = {
-                "response": response.response,
-                "citation_indices": response.citation_indices,
-                "documents": state.context,
-                "trace_id": trace_id  # Include trace ID in the result
+            # 5. Prepare output
+            output = {
+                "query": query,
+                "trace_id": trace_id,
+                "response": response_result.response,
+                "citation_indices": response_result.citation_indices,
+                "documents": ranked_docs.results,
+                "confidence_score": response_result.confidence_score or 0.0
             }
             
             # Complete the trace
-            self.tracker.complete_trace(trace_id, response.response)
+            self.tracker.complete_trace(trace_id, response_result.response)
             
-            return result
+            return output
             
         except Exception as e:
             # Track the error

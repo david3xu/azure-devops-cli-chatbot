@@ -90,11 +90,11 @@ def test_search_and_response():
             start_time = time.time()
             
             if method == "vector":
-                search_results = search_connector.vector_search(query=query, filter=None, top=3)
+                search_results = search_connector.vector_search(query=query, filter=None, top_k=3)
             elif method == "semantic":
-                search_results = search_connector.semantic_search(query=query, filter=None, top=3)
+                search_results = search_connector.semantic_search(query=query, filter=None, top_k=3)
             else:  # hybrid
-                search_results = search_connector.hybrid_search(query=query, filter=None, top=3)
+                search_results = search_connector.hybrid_search(query=query, filter=None, top_k=3)
             
             search_time = time.time() - start_time
             print(f"{method.capitalize()} search completed in {search_time:.2f} seconds")

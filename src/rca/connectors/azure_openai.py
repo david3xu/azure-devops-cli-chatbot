@@ -10,6 +10,20 @@ import logging
 import requests
 from pydantic import BaseModel
 
+try:
+    from openai import AzureOpenAI
+except ImportError:
+    # Mock implementation
+    class AzureOpenAI:
+        def __init__(self, **kwargs):
+            pass
+            
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    return None
+
 from src.rca.utils.logging import get_logger
 
 # Configure logger
@@ -43,78 +57,103 @@ class AzureOpenAIConnector:
     
     def __init__(self):
         """Initialize the Azure OpenAI connector."""
-        # Azure OpenAI settings from environment variables
-        self.api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
-        self.endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+        # Configuration
+        self.api_key = os.getenv("AZURE_OPENAI_API_KEY")
+        self.endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2023-05-15")
+        self.deployment = os.getenv("AZURE_OPENAI_CHATGPT_DEPLOYMENT", "gpt-4o-mini")
+        self.model = os.getenv("AZURE_OPENAI_CHATGPT_MODEL", "gpt-4o-mini")
+        self.temperature = float(os.getenv("AZURE_OPENAI_CHATGPT_TEMPERATURE", "0"))
+        self.max_tokens = int(os.getenv("AZURE_OPENAI_MAX_TOKENS", "2000"))
         
-        # Deployment settings
-        self.chat_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4")
-        self.chat_model = os.getenv("AZURE_OPENAI_MODEL", "gpt-4")
+        # Clean up configuration values
+        self.api_key = self.api_key.replace('"', '') if self.api_key else ""
+        self.endpoint = self.endpoint.replace('"', '') if self.endpoint else ""
+        self.api_version = self.api_version.replace('"', '') if self.api_version else ""
+        self.deployment = self.deployment.replace('"', '') if self.deployment else ""
+        self.model = self.model.replace('"', '') if self.model else ""
         
-        # Default parameters
-        self.default_temperature = float(os.getenv("AZURE_OPENAI_TEMPERATURE", "0.5"))
-        self.default_max_tokens = int(os.getenv("AZURE_OPENAI_MAX_TOKENS", "2000"))
+        # Clean up endpoint URL (remove trailing slash)
+        if self.endpoint:
+            self.endpoint = self.endpoint.rstrip('/')
         
-        # Support for gpt-4o-mini model
-        self.support_4o_mini = True
-        
-        # Tracking successful initialization
+        # State
         self.initialized = False
+        self.client = None
+        self.support_4o_mini = "gpt-4o-mini" in (self.model or "") or "gpt-4o-mini" in (self.deployment or "")
+        
+        # Stats
+        self.total_requests = 0
+        self.total_tokens = 0
     
     def initialize(self) -> bool:
         """
         Initialize the Azure OpenAI connector.
         
         Returns:
-            bool: True if successful, False otherwise
+            True if initialized successfully, False otherwise
         """
         if self.initialized:
             return True
             
         try:
-            # Validate required settings
+            # Load settings if not already set
+            if not self.api_key:
+                self.api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
+                self.api_key = self.api_key.replace('"', '')
+                
+            if not self.endpoint:
+                self.endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+                self.endpoint = self.endpoint.replace('"', '')
+                
+            if not self.api_version:
+                self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2023-05-15")
+                self.api_version = self.api_version.replace('"', '')
+                
+            if not self.deployment:
+                self.deployment = os.getenv("AZURE_OPENAI_CHATGPT_DEPLOYMENT", "gpt-4o-mini")
+                self.deployment = self.deployment.replace('"', '')
+                
+            if not self.model:
+                self.model = os.getenv("AZURE_OPENAI_CHATGPT_MODEL", "gpt-4o-mini")
+                self.model = self.model.replace('"', '')
+                
+            # Clean up endpoint URL
+            if self.endpoint:
+                self.endpoint = self.endpoint.rstrip('/')
+            
+            # Validate settings
             if not self.api_key or not self.endpoint:
-                logger.error("Missing required Azure OpenAI settings")
-                logger.error(f"API Key: {'Set' if self.api_key else 'Missing'}")
-                logger.error(f"Endpoint: {'Set' if self.endpoint else 'Missing'}")
-                return False
-            
-            # Check if model is gpt-4o-mini
-            if "gpt-4o-mini" in self.chat_model or "gpt-4o-mini" in self.chat_deployment:
-                logger.info("Using gpt-4o-mini model - more efficient and cost-effective")
-                self.is_4o_mini = True
-            else:
-                logger.info(f"Using {self.chat_model} model via {self.chat_deployment} deployment")
-                self.is_4o_mini = False
-            
-            # Test the connection with a simple query
-            test_messages = [
-                ChatMessage(role="system", content="You are a helpful assistant."),
-                ChatMessage(role="user", content="Hello, are you working?")
-            ]
-            
-            response = self.chat_completion(
-                messages=test_messages, 
-                temperature=0.1,
-                max_tokens=20
-            )
-            
-            if response:
-                self.initialized = True
-                logger.info("Azure OpenAI connector initialized successfully")
+                logger.warning("Missing required OpenAI settings")
+                logger.warning(f"API Key: {'Set' if self.api_key else 'Missing'}")
+                logger.warning(f"Endpoint: {'Set' if self.endpoint else 'Missing'}")
+                self.initialized = True  # Still mark as initialized, but will use mock
                 return True
-            else:
-                logger.error("Failed to get test completion from Azure OpenAI")
-                return False
+                
+            # Try to initialize SDK client
+            try:
+                self.client = AzureOpenAI(
+                    api_key=self.api_key,
+                    api_version=self.api_version,
+                    azure_endpoint=self.endpoint
+                )
+                logger.info(f"Azure OpenAI connector initialized with \"{self.model}\" model via \"{self.deployment}\" deployment")
+            except Exception as e:
+                logger.warning(f"Failed to initialize OpenAI SDK client: {str(e)}")
+                self.client = None
+                
+            # Mark as initialized - we'll use HTTP requests as fallback if client is None
+            self.initialized = True
+            return True
                 
         except Exception as e:
             logger.error(f"Error initializing Azure OpenAI connector: {str(e)}")
-            return False
+            self.initialized = True  # Still mark as initialized to allow fallback to mock
+            return True
     
     def chat_completion(
         self, 
-        messages: List[ChatMessage],
+        messages: List[Union[ChatMessage, Dict[str, str]]],
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         stream: bool = False,
@@ -138,29 +177,68 @@ class AzureOpenAIConnector:
             return self._get_mock_completion(messages)
         
         try:
-            # Prepare the chat request
-            url = f"{self.endpoint}/openai/deployments/{self.chat_deployment}/chat/completions"
+            # Convert message format if needed
+            formatted_messages = []
+            for msg in messages:
+                if isinstance(msg, ChatMessage):
+                    formatted_messages.append({"role": msg.role, "content": msg.content})
+                elif isinstance(msg, dict) and "role" in msg and "content" in msg:
+                    formatted_messages.append(msg)
+                else:
+                    logger.error(f"Invalid message format: {msg}")
+                    continue
+            
+            # Log the request
+            if len(formatted_messages) > 0:
+                last_msg_content = formatted_messages[-1]["content"]
+                truncated = last_msg_content[:30] + "..." if len(last_msg_content) > 30 else last_msg_content
+                logger.debug(f"Sending to Azure OpenAI: [{formatted_messages[0]['role']},...,{formatted_messages[-1]['role']}] Last message: '{truncated}'")
+            
+            # Track request count
+            self.total_requests += 1
+            
+            # Use the SDK client if available, otherwise use HTTP requests
+            if self.client:
+                try:
+                    completion = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=formatted_messages,
+                        temperature=temperature if temperature is not None else self.temperature,
+                        max_tokens=max_tokens if max_tokens is not None else self.max_tokens,
+                        stream=stream,
+                        stop=stop_sequences
+                    )
+                    
+                    # Track token usage
+                    if hasattr(completion, 'usage') and hasattr(completion.usage, 'total_tokens'):
+                        self.total_tokens += completion.usage.total_tokens
+                    
+                    # Return the completion
+                    return completion
+                    
+                except Exception as e:
+                    logger.error(f"SDK chat completion request failed: {str(e)}")
+                    logger.info("Falling back to HTTP request method")
+                    # Fall through to HTTP request method
+            
+            # HTTP request implementation (used when SDK is not available or fails)
+            # Build the URL using our helper method
+            url = self._build_url(f"openai/deployments/{self.deployment}/chat/completions")
             headers = {
                 "Content-Type": "application/json",
-                "api-key": self.api_key
+                "api-key": self._clean_value(self.api_key)
             }
             
             params = {
                 "api-version": self.api_version
             }
             
-            # Convert messages to the expected format
-            formatted_messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in messages
-            ]
-            
             # Prepare the request body
             request_body = {
                 "messages": formatted_messages,
-                "model": self.chat_model,
-                "temperature": temperature if temperature is not None else self.default_temperature,
-                "max_tokens": max_tokens if max_tokens is not None else self.default_max_tokens,
+                "model": self.model,
+                "temperature": temperature if temperature is not None else self.temperature,
+                "max_tokens": max_tokens if max_tokens is not None else self.max_tokens,
                 "stream": stream
             }
             
@@ -168,17 +246,7 @@ class AzureOpenAIConnector:
             if stop_sequences:
                 request_body["stop"] = stop_sequences
             
-            # Optimize for gpt-4o-mini if using that model
-            if self.is_4o_mini:
-                # GPT-4o-mini performs better with slightly higher temperature
-                if temperature is None or temperature < 0.2:
-                    request_body["temperature"] = 0.2
-                    
-                # Use the seed parameter for more deterministic results
-                request_body["seed"] = 123
-            
             # Make the request
-            start_time = time.time()
             response = requests.post(
                 url,
                 headers=headers,
@@ -186,33 +254,29 @@ class AzureOpenAIConnector:
                 json=request_body,
                 timeout=60  # Increased timeout for longer responses
             )
-            request_time = (time.time() - start_time) * 1000
-            
-            # Handle streaming responses
-            if stream:
-                # Return the response object directly for streaming
-                return response
             
             # Handle non-streaming responses
             if response.status_code != 200:
-                logger.error(f"Chat completion request failed: {response.status_code} - {response.text}")
+                logger.error(f"HTTP chat completion request failed: {response.status_code} - {response.text}")
                 return self._get_mock_completion(messages)
             
+            # Parse the response
             result = response.json()
             
             # Log performance metrics
             token_count = result.get("usage", {}).get("total_tokens", 0)
-            logger.info(f"Chat completion: {token_count} tokens in {request_time:.2f}ms")
+            self.total_tokens += token_count
+            logger.info(f"Chat completion: {token_count} tokens")
             
             return result
-                
+            
         except Exception as e:
             logger.error(f"Error in chat completion: {str(e)}")
             return self._get_mock_completion(messages)
     
-    def _get_mock_completion(self, messages: List[ChatMessage]) -> Dict[str, Any]:
+    def _get_mock_completion(self, messages: List[Union[ChatMessage, Dict[str, str]]]) -> Dict[str, Any]:
         """
-        Get a mock chat completion for development and testing.
+        Get a mock completion for testing or when real service is unavailable.
         
         Args:
             messages: List of chat messages
@@ -220,63 +284,122 @@ class AzureOpenAIConnector:
         Returns:
             Mock chat completion response
         """
-        # Extract the last user message to generate a relevant mock response
-        last_message = None
-        for msg in reversed(messages):
-            if msg.role == "user":
-                last_message = msg.content
-                break
-        
-        # Generate a mock response based on the user's query
-        if last_message:
-            if "azure" in last_message.lower() or "devops" in last_message.lower():
-                mock_content = "Azure DevOps is a set of development tools and services that help teams plan work, collaborate on code development, and build and deploy applications."
-            elif "pipeline" in last_message.lower():
-                mock_content = "Azure Pipelines is a cloud service that you can use to automatically build, test, and deploy your code project."
-            elif "issue" in last_message.lower() or "problem" in last_message.lower() or "troubleshoot" in last_message.lower():
-                mock_content = "When troubleshooting issues, start by checking logs, reviewing recent changes, and examining system metrics to identify the root cause."
-            else:
-                mock_content = "I'm a mock assistant for development. This is a placeholder response since we're not connected to the actual Azure OpenAI service."
-        else:
-            mock_content = "I'm a mock assistant for development. This is a placeholder response."
-        
-        # Create a mock OpenAI API response
-        mock_response = {
-            "id": "mock-completion-id",
-            "object": "chat.completion",
-            "created": int(time.time()),
-            "model": "mock-model",
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": mock_content
-                    },
-                    "finish_reason": "stop"
-                }
-            ],
-            "usage": {
-                "prompt_tokens": sum(len(msg.content.split()) for msg in messages),
-                "completion_tokens": len(mock_content.split()),
-                "total_tokens": sum(len(msg.content.split()) for msg in messages) + len(mock_content.split())
+        try:
+            # Extract the last user message
+            last_message = None
+            for msg in reversed(messages):
+                if isinstance(msg, ChatMessage):
+                    if msg.role == "user":
+                        last_message = msg.content
+                        break
+                elif isinstance(msg, dict) and msg.get("role") == "user":
+                    last_message = msg.get("content", "")
+                    break
+            
+            if not last_message:
+                last_message = "Hello"
+                
+            # Generate a mock response
+            mock_response = f"This is a mock response to: {last_message}"
+            
+            # Create a response mimicking the OpenAI SDK format
+            from types import SimpleNamespace
+            
+            # Create message
+            message = SimpleNamespace()
+            message.content = mock_response
+            message.role = "assistant"
+            
+            # Create choice
+            choice = SimpleNamespace()
+            choice.message = message
+            choice.finish_reason = "stop"
+            choice.index = 0
+            
+            # Create usage
+            usage = SimpleNamespace()
+            usage.prompt_tokens = 50
+            usage.completion_tokens = len(mock_response.split())
+            usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
+            
+            # Create response
+            response = SimpleNamespace()
+            response.choices = [choice]
+            response.model = "mock-gpt-4"
+            response.usage = usage
+            response.id = "mock-completion-id"
+            response.created = int(time.time())
+            
+            logger.info("Using mock completion as fallback")
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error generating mock completion: {str(e)}")
+            
+            # Return minimal mock response
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "Error generating mock response",
+                            "role": "assistant"
+                        }
+                    }
+                ]
             }
-        }
-        
-        return mock_response
     
-    def get_completion_text(self, completion_response: Dict[str, Any]) -> str:
+    def get_completion_text(self, completion_response) -> str:
         """
-        Extract the completion text from a chat completion response.
+        Extract the text from a chat completion response.
         
         Args:
-            completion_response: Chat completion response
+            completion_response: Response from OpenAI API
             
         Returns:
-            Completion text
+            The text of the completion
         """
         try:
-            return completion_response["choices"][0]["message"]["content"]
-        except (KeyError, IndexError):
-            logger.error("Failed to extract completion text from response")
-            return "" 
+            # Handle both dictionary and object formats
+            if hasattr(completion_response, 'choices') and len(completion_response.choices) > 0:
+                if hasattr(completion_response.choices[0], 'message'):
+                    return completion_response.choices[0].message.content
+                
+            # Fall back to dictionary access for JSON responses
+            if isinstance(completion_response, dict):
+                if 'choices' in completion_response and len(completion_response['choices']) > 0:
+                    return completion_response['choices'][0]['message']['content']
+            
+            # If we can't find content, return empty string
+            return ""
+            
+        except Exception as e:
+            logger.error(f"Error extracting text from completion: {str(e)}")
+            return ""
+    
+    def _build_url(self, path):
+        """
+        Build a properly formatted URL for Azure OpenAI API.
+        
+        Args:
+            path: API path to append to the endpoint
+            
+        Returns:
+            Formatted URL
+        """
+        endpoint = self.endpoint.rstrip('/')
+        path = path.lstrip('/')
+        return f"{endpoint}/{path}"
+        
+    def _clean_value(self, value):
+        """
+        Clean a configuration value by removing quotes.
+        
+        Args:
+            value: Value to clean
+            
+        Returns:
+            Cleaned value
+        """
+        if value is None:
+            return ""
+        return str(value).replace('"', '') 

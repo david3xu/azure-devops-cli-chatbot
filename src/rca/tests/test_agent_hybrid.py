@@ -43,7 +43,7 @@ def test_agent_with_hybrid_search():
         search_results = search_connector.hybrid_search(
             query=query,
             filter=None,
-            top=3
+            top_k=3
         )
         search_time = time.time() - start_time
         print(f"Hybrid search completed in {search_time:.2f} seconds")

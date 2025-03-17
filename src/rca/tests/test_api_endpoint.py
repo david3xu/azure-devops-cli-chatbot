@@ -77,19 +77,19 @@ async def process_query(request: QueryRequest):
             search_results = search_connector.hybrid_search(
                 query=request.query,
                 filter=request.filter,
-                top=request.top_k
+                top_k=request.top_k
             )
         elif request.search_type.lower() == "vector":
             search_results = search_connector.vector_search(
                 query=request.query,
                 filter=request.filter,
-                top=request.top_k
+                top_k=request.top_k
             )
         elif request.search_type.lower() == "semantic":
             search_results = search_connector.semantic_search(
                 query=request.query,
                 filter=request.filter,
-                top=request.top_k
+                top_k=request.top_k
             )
         else:
             raise HTTPException(status_code=400, detail=f"Invalid search type: {request.search_type}")

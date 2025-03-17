@@ -86,6 +86,23 @@ class AzureSearchConnector:
             return True
             
         try:
+            # Construct the search endpoint if not already set
+            if not self.endpoint and self.service_name:
+                self.endpoint = f"https://{self.service_name}.search.windows.net"
+                
+            # Remove any quotes from the endpoint and index name
+            self.endpoint = self.endpoint.replace('"', '')
+            self.index_name = self.index_name.replace('"', '')
+            
+            # Use admin key if available, otherwise use query key
+            if self.admin_key:
+                self.key = self.admin_key
+            else:
+                self.key = self.query_key
+                
+            # Remove any quotes from the key
+            self.key = self.key.replace('"', '')
+            
             # Validate required settings
             if not all([self.endpoint, self.key, self.index_name]):
                 logger.warning("Missing required Azure Search settings")
@@ -104,9 +121,11 @@ class AzureSearchConnector:
             try:
                 # Try to get index statistics
                 url = f"{self.endpoint}/indexes/{self.index_name}/stats"
+                # Remove any quotes from the URL
+                url = url.replace('"', '')
                 headers = {
                     "Content-Type": "application/json",
-                    "api-key": self.key
+                    "api-key": self.key.replace('"', '')  # Remove any quotes from the key
                 }
                 
                 params = {
@@ -157,14 +176,14 @@ class AzureSearchConnector:
             self.initialized = True
             return True
     
-    def vector_search(self, query, filter=None, top=3):
+    def vector_search(self, query, filter=None, top_k=3):
         """
         Perform vector search using embeddings.
         
         Args:
             query: The query to search for
             filter: Filter criteria
-            top: Number of results to return
+            top_k: Number of results to return
             
         Returns:
             List of search results
@@ -173,7 +192,7 @@ class AzureSearchConnector:
             self.initialize()
             
         if self.use_mock:
-            return self._get_mock_results(top)
+            return self._get_mock_results(top_k)
             
         try:
             start_time = time.time()
@@ -188,11 +207,11 @@ class AzureSearchConnector:
                         "kind": "vector",
                         "vector": query_vector,
                         "fields": "embedding",
-                        "k": top
+                        "k": top_k
                     }
                 ],
                 "select": "id,content,category,sourcepage,sourcefile",
-                "top": top
+                "top": top_k
             }
             
             # Add filter if provided
@@ -201,9 +220,10 @@ class AzureSearchConnector:
                 
             # Execute search
             search_url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version={self.api_version}"
+            search_url = search_url.replace('"', '')
             headers = {
                 "Content-Type": "application/json",
-                "api-key": self.key
+                "api-key": self.key.replace('"', '')
             }
             response = requests.post(
                 search_url,
@@ -216,7 +236,7 @@ class AzureSearchConnector:
             
             if response.status_code != 200:
                 logger.warning(f"Vector search failed: {response.status_code} - {response.text}")
-                return self._get_mock_results(top)
+                return self._get_mock_results(top_k)
                 
             # Process results
             results = response.json()
@@ -227,7 +247,7 @@ class AzureSearchConnector:
             
         except Exception as e:
             logger.error(f"Error in vector search: {str(e)}")
-            return self._get_mock_results(top)
+            return self._get_mock_results(top_k)
     
     def semantic_search(
         self, 
@@ -257,9 +277,11 @@ class AzureSearchConnector:
         try:
             # Prepare search request
             url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version={self.api_version}"
+            # Remove any quotes from the URL
+            url = url.replace('"', '')
             headers = {
                 "Content-Type": "application/json",
-                "api-key": self.key
+                "api-key": self.key.replace('"', '')  # Remove any quotes from the key
             }
             
             # Construct the search request
@@ -329,9 +351,11 @@ class AzureSearchConnector:
             
             # Prepare search request
             url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version={self.api_version}"
+            # Remove any quotes from the URL
+            url = url.replace('"', '')
             headers = {
                 "Content-Type": "application/json",
-                "api-key": self.key
+                "api-key": self.key.replace('"', '')  # Remove any quotes from the key
             }
             
             # Try new hybrid search format
@@ -432,67 +456,69 @@ class AzureSearchConnector:
         return processed_results
     
     def _get_mock_results(self, top_k=3, filter=None):
-        """
-        Generate mock search results for development and testing.
+        print("Getting mock results: Azure Search Connectorzure Search Connector NOT work")
+        return []
+        # """
+        # Generate mock search results for development and testing.
         
-        Args:
-            top_k: Number of results to return
-            filter: Optional filter expression (not used in mock implementation)
+        # Args:
+        #     top_k: Number of results to return
+        #     filter: Optional filter expression (not used in mock implementation)
             
-        Returns:
-            List of mock search results
-        """
-        # Sample documents that match our actual schema
-        mock_docs = [
-            {
-                "id": "file-azure-devops-guide_pdf-page-1",
-                "content": "Azure DevOps is a suite of services that helps teams plan work, collaborate on code development, and build and deploy applications.",
-                "score": 0.95,
-                "sourcepage": "azure-devops-guide.pdf#page=1",
-                "filepath": "azure-devops-guide.pdf",
-                "category": "overview",
-                "url": "https://example.com/azure-devops-guide.pdf"
-            },
-            {
-                "id": "file-azure-pipelines_pdf-page-5",
-                "content": "Azure Pipelines automatically builds and tests code projects to make them available to others. It works with just about any language or project type.",
-                "score": 0.89,
-                "sourcepage": "azure-pipelines.pdf#page=5",
-                "filepath": "azure-pipelines.pdf",
-                "category": "pipelines",
-                "url": "https://example.com/azure-pipelines.pdf"
-            },
-            {
-                "id": "file-azure-boards_pdf-page-3",
-                "content": "Azure Boards is a service for managing work for software projects. It provides a customizable way to track work items including bugs, tasks, and features.",
-                "score": 0.82,
-                "sourcepage": "azure-boards.pdf#page=3",
-                "filepath": "azure-boards.pdf",
-                "category": "boards",
-                "url": "https://example.com/azure-boards.pdf"
-            },
-            {
-                "id": "file-azure-repos_pdf-page-7",
-                "content": "Azure Repos provides Git repositories or Team Foundation Version Control (TFVC) for source control of your code.",
-                "score": 0.78,
-                "sourcepage": "azure-repos.pdf#page=7",
-                "filepath": "azure-repos.pdf",
-                "category": "repos",
-                "url": "https://example.com/azure-repos.pdf"
-            },
-            {
-                "id": "file-azure-artifacts_pdf-page-9",
-                "content": "Azure Artifacts enables teams to share packages such as Maven, npm, NuGet, and more from public and private sources and integrate package sharing into your pipelines.",
-                "score": 0.75,
-                "sourcepage": "azure-artifacts.pdf#page=9",
-                "filepath": "azure-artifacts.pdf",
-                "category": "artifacts",
-                "url": "https://example.com/azure-artifacts.pdf"
-            }
-        ]
+        # Returns:
+        #     List of mock search results
+        # """
+        # # Sample documents that match our actual schema
+        # mock_docs = [
+        #     {
+        #         "id": "file-azure-devops-guide_pdf-page-1",
+        #         "content": "Azure DevOps is a suite of services that helps teams plan work, collaborate on code development, and build and deploy applications.",
+        #         "score": 0.95,
+        #         "sourcepage": "azure-devops-guide.pdf#page=1",
+        #         "filepath": "azure-devops-guide.pdf",
+        #         "category": "overview",
+        #         "url": "https://example.com/azure-devops-guide.pdf"
+        #     },
+        #     {
+        #         "id": "file-azure-pipelines_pdf-page-5",
+        #         "content": "Azure Pipelines automatically builds and tests code projects to make them available to others. It works with just about any language or project type.",
+        #         "score": 0.89,
+        #         "sourcepage": "azure-pipelines.pdf#page=5",
+        #         "filepath": "azure-pipelines.pdf",
+        #         "category": "pipelines",
+        #         "url": "https://example.com/azure-pipelines.pdf"
+        #     },
+        #     {
+        #         "id": "file-azure-boards_pdf-page-3",
+        #         "content": "Azure Boards is a service for managing work for software projects. It provides a customizable way to track work items including bugs, tasks, and features.",
+        #         "score": 0.82,
+        #         "sourcepage": "azure-boards.pdf#page=3",
+        #         "filepath": "azure-boards.pdf",
+        #         "category": "boards",
+        #         "url": "https://example.com/azure-boards.pdf"
+        #     },
+        #     {
+        #         "id": "file-azure-repos_pdf-page-7",
+        #         "content": "Azure Repos provides Git repositories or Team Foundation Version Control (TFVC) for source control of your code.",
+        #         "score": 0.78,
+        #         "sourcepage": "azure-repos.pdf#page=7",
+        #         "filepath": "azure-repos.pdf",
+        #         "category": "repos",
+        #         "url": "https://example.com/azure-repos.pdf"
+        #     },
+        #     {
+        #         "id": "file-azure-artifacts_pdf-page-9",
+        #         "content": "Azure Artifacts enables teams to share packages such as Maven, npm, NuGet, and more from public and private sources and integrate package sharing into your pipelines.",
+        #         "score": 0.75,
+        #         "sourcepage": "azure-artifacts.pdf#page=9",
+        #         "filepath": "azure-artifacts.pdf",
+        #         "category": "artifacts",
+        #         "url": "https://example.com/azure-artifacts.pdf"
+        #     }
+        # ]
         
-        # Return the top k results or all if fewer than k
-        return self._process_search_results(mock_docs[:min(top_k, len(mock_docs))])
+        # # Return the top k results or all if fewer than k
+        # return self._process_search_results(mock_docs[:min(top_k, len(mock_docs))])
     
     def index_document(self, document: Dict[str, Any]) -> bool:
         """

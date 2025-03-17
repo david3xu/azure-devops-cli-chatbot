@@ -7,6 +7,10 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
+import os
+import json
+import pickle
+from pathlib import Path
 
 
 class StepTrace(BaseModel):
@@ -55,6 +59,60 @@ class WorkflowTrace(BaseModel):
         self.final_response = final_response
 
 
+class FileStorageBackend:
+    """Simple file-based storage backend for workflow traces"""
+    
+    def __init__(self, storage_dir=None):
+        """Initialize the file storage backend"""
+        if storage_dir is None:
+            base_dir = Path(__file__).resolve().parent.parent.parent.parent
+            storage_dir = os.path.join(base_dir, 'data', 'traces')
+            
+        os.makedirs(storage_dir, exist_ok=True)
+        self.storage_dir = storage_dir
+        print(f"Trace storage initialized at: {self.storage_dir}")
+        
+    def store_trace(self, trace: WorkflowTrace):
+        """Store a trace to a file"""
+        trace_file = os.path.join(self.storage_dir, f"{trace.trace_id}.pkl")
+        
+        try:
+            with open(trace_file, 'wb') as f:
+                pickle.dump(trace, f)
+            print(f"Stored trace {trace.trace_id} to {trace_file}")
+            return True
+        except Exception as e:
+            print(f"Error storing trace: {str(e)}")
+            return False
+            
+    def load_traces(self, limit=None):
+        """Load traces from storage"""
+        traces = []
+        
+        try:
+            trace_files = sorted(
+                [f for f in os.listdir(self.storage_dir) if f.endswith('.pkl')],
+                key=lambda x: os.path.getmtime(os.path.join(self.storage_dir, x)),
+                reverse=True
+            )
+            
+            if limit:
+                trace_files = trace_files[:limit]
+                
+            for trace_file in trace_files:
+                try:
+                    with open(os.path.join(self.storage_dir, trace_file), 'rb') as f:
+                        trace = pickle.load(f)
+                        traces.append(trace)
+                except Exception as e:
+                    print(f"Error loading trace {trace_file}: {str(e)}")
+            
+            return traces
+        except Exception as e:
+            print(f"Error listing traces: {str(e)}")
+            return []
+
+
 class WorkflowTracker:
     """Track workflow execution with inputs and outputs at each step"""
     
@@ -62,6 +120,20 @@ class WorkflowTracker:
         self.active_traces: Dict[str, WorkflowTrace] = {}
         self.completed_traces: List[WorkflowTrace] = []
         self.storage_backends = []
+        
+        # Add file storage backend by default
+        self.register_storage_backend(FileStorageBackend())
+        
+        # Load existing traces on startup
+        self._load_traces_from_storage()
+    
+    def _load_traces_from_storage(self):
+        """Load traces from storage backends"""
+        for backend in self.storage_backends:
+            if hasattr(backend, 'load_traces'):
+                traces = backend.load_traces()
+                self.completed_traces.extend(traces)
+                print(f"Loaded {len(traces)} traces from storage")
     
     def register_storage_backend(self, backend):
         """Register a storage backend for traces"""

@@ -3,13 +3,13 @@ Search tools for the RCA system.
 Provides search tools using Azure AI Search with vector, semantic, and hybrid search.
 """
 from typing import Dict, List, Optional, Any
-from pydantic import Field
+from pydantic import Field, BaseModel
 
 from src.rca.tools.base_tool import BaseTool
 from src.rca.connectors.azure_search import AzureSearchConnector
 
 
-class VectorSearchInput(BaseTool.Input):
+class VectorSearchInput(BaseModel):
     """Input for VectorSearchTool."""
     
     query: str = Field(
@@ -26,7 +26,7 @@ class VectorSearchInput(BaseTool.Input):
     )
 
 
-class VectorSearchOutput(BaseTool.Output):
+class VectorSearchOutput(BaseModel):
     """Output from VectorSearchTool."""
     
     results: List[Dict[str, Any]] = Field(
@@ -35,13 +35,13 @@ class VectorSearchOutput(BaseTool.Output):
     )
 
 
-class VectorSearchTool(BaseTool):
+class VectorSearchTool(BaseTool[VectorSearchInput, VectorSearchOutput]):
     """Tool for performing vector search."""
     
     name = "vector_search"
     description = "Search for information using vector search"
-    input_class = VectorSearchInput
-    output_class = VectorSearchOutput
+    input_model = VectorSearchInput
+    output_model = VectorSearchOutput
     connector: AzureSearchConnector = None
     
     def __init__(self):
@@ -49,31 +49,31 @@ class VectorSearchTool(BaseTool):
         super().__init__()
         self.connector = AzureSearchConnector()
     
-    def _run(self, input_data: VectorSearchInput) -> VectorSearchOutput:
+    def _execute(self, input_data: VectorSearchInput) -> Dict[str, Any]:
         """
-        Run the vector search tool.
+        Execute vector search.
         
         Args:
-            input_data: VectorSearchInput
+            input_data: Search parameters
             
         Returns:
-            VectorSearchOutput
+            Search results
         """
-        # Ensure the connector is initialized
-        if not hasattr(self.connector, 'initialized') or not self.connector.initialized:
-            self.connector.initialize()
+        # Initialize connector if not already done
+        if not self.connector:
+            self.connector = AzureSearchConnector()
             
-        # Perform vector search
+        # Perform search
         results = self.connector.vector_search(
             query=input_data.query,
             top_k=input_data.top_k,
-            filters=input_data.filters,
+            filter=input_data.filters
         )
         
-        return VectorSearchOutput(results=results)
+        return {"results": results}
 
 
-class SemanticSearchInput(BaseTool.Input):
+class SemanticSearchInput(BaseModel):
     """Input for SemanticSearchTool."""
     
     query: str = Field(
@@ -90,7 +90,7 @@ class SemanticSearchInput(BaseTool.Input):
     )
 
 
-class SemanticSearchOutput(BaseTool.Output):
+class SemanticSearchOutput(BaseModel):
     """Output from SemanticSearchTool."""
     
     results: List[Dict[str, Any]] = Field(
@@ -99,13 +99,13 @@ class SemanticSearchOutput(BaseTool.Output):
     )
 
 
-class SemanticSearchTool(BaseTool):
+class SemanticSearchTool(BaseTool[SemanticSearchInput, SemanticSearchOutput]):
     """Tool for performing semantic search."""
     
     name = "semantic_search"
     description = "Search for information using semantic search with extractive captions"
-    input_class = SemanticSearchInput
-    output_class = SemanticSearchOutput
+    input_model = SemanticSearchInput
+    output_model = SemanticSearchOutput
     connector: AzureSearchConnector = None
     
     def __init__(self):
@@ -113,31 +113,31 @@ class SemanticSearchTool(BaseTool):
         super().__init__()
         self.connector = AzureSearchConnector()
     
-    def _run(self, input_data: SemanticSearchInput) -> SemanticSearchOutput:
+    def _execute(self, input_data: SemanticSearchInput) -> Dict[str, Any]:
         """
-        Run the semantic search tool.
+        Execute semantic search.
         
         Args:
-            input_data: SemanticSearchInput
+            input_data: Search parameters
             
         Returns:
-            SemanticSearchOutput
+            Search results
         """
-        # Ensure the connector is initialized
-        if not hasattr(self.connector, 'initialized') or not self.connector.initialized:
-            self.connector.initialize()
+        # Initialize connector if not already done
+        if not self.connector:
+            self.connector = AzureSearchConnector()
             
-        # Perform semantic search
+        # Perform search
         results = self.connector.semantic_search(
             query=input_data.query,
             top_k=input_data.top_k,
-            filters=input_data.filters,
+            filter=input_data.filters
         )
         
-        return SemanticSearchOutput(results=results)
+        return {"results": results}
 
 
-class HybridSearchInput(BaseTool.Input):
+class HybridSearchInput(BaseModel):
     """Input for HybridSearchTool."""
     
     query: str = Field(
@@ -154,7 +154,7 @@ class HybridSearchInput(BaseTool.Input):
     )
 
 
-class HybridSearchOutput(BaseTool.Output):
+class HybridSearchOutput(BaseModel):
     """Output from HybridSearchTool."""
     
     results: List[Dict[str, Any]] = Field(
@@ -163,13 +163,13 @@ class HybridSearchOutput(BaseTool.Output):
     )
 
 
-class HybridSearchTool(BaseTool):
+class HybridSearchTool(BaseTool[HybridSearchInput, HybridSearchOutput]):
     """Tool for performing hybrid search combining vector and semantic search."""
     
     name = "hybrid_search"
     description = "Search for information using hybrid search (combining vector and semantic search)"
-    input_class = HybridSearchInput
-    output_class = HybridSearchOutput
+    input_model = HybridSearchInput
+    output_model = HybridSearchOutput
     connector: AzureSearchConnector = None
     
     def __init__(self):
@@ -177,25 +177,25 @@ class HybridSearchTool(BaseTool):
         super().__init__()
         self.connector = AzureSearchConnector()
     
-    def _run(self, input_data: HybridSearchInput) -> HybridSearchOutput:
+    def _execute(self, input_data: HybridSearchInput) -> Dict[str, Any]:
         """
-        Run the hybrid search tool.
+        Execute hybrid search.
         
         Args:
-            input_data: HybridSearchInput
+            input_data: Search parameters
             
         Returns:
-            HybridSearchOutput
+            Search results
         """
-        # Ensure the connector is initialized
-        if not hasattr(self.connector, 'initialized') or not self.connector.initialized:
-            self.connector.initialize()
+        # Initialize connector if not already done
+        if not self.connector:
+            self.connector = AzureSearchConnector()
             
-        # Perform hybrid search
+        # Perform search
         results = self.connector.hybrid_search(
             query=input_data.query,
             top_k=input_data.top_k,
-            filters=input_data.filters,
+            filter=input_data.filters
         )
         
-        return HybridSearchOutput(results=results) 
+        return {"results": results} 

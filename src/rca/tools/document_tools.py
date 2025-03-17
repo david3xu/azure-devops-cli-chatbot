@@ -16,7 +16,7 @@ class RankingInput(BaseModel):
 
 class RankingOutput(BaseModel):
     """Output model for document ranking."""
-    documents: List[Dict[str, Any]] = Field(default_factory=list)
+    results: List[Dict[str, Any]] = Field(default_factory=list)
     original_query: str
 
 
@@ -51,7 +51,8 @@ class DocumentRankingTool(BaseTool[RankingInput, RankingOutput]):
             reverse=True
         )
         
+        # Return ranked documents
         return {
-            "documents": sorted_docs,
+            "results": sorted_docs,
             "original_query": input_data.query
         } 

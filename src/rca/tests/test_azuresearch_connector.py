@@ -41,7 +41,7 @@ def test_search_connector():
         # Test vector search
         print("\n--- VECTOR SEARCH ---\n")
         start_time = time.time()
-        vector_results = search_connector.vector_search(query=query, top=3)
+        vector_results = search_connector.vector_search(query=query, top_k=3)
         vector_time = time.time() - start_time
         
         print(f"Vector search completed in {vector_time:.2f} seconds")
