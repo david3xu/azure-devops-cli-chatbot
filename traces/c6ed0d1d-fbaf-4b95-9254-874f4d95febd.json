@@ -1,0 +1,275 @@
+{
+  "trace_id": "c6ed0d1d-fbaf-4b95-9254-874f4d95febd",
+  "query": "What causes database connection timeout issues?",
+  "start_time": "2025-03-16 11:25:27.588829",
+  "end_time": "2025-03-16 11:25:27.589015",
+  "duration_ms": 0.186,
+  "steps": [
+    {
+      "step_name": "vector_search",
+      "inputs": {
+        "query": "What causes database connection timeout issues?"
+      },
+      "outputs": {},
+      "start_time": "2025-03-16 11:25:27.588840",
+      "end_time": "2025-03-16 11:25:27.588857",
+      "duration_ms": 0.017,
+      "metadata": {
+        "tool_name": "vector_search"
+      }
+    },
+    {
+      "step_name": "vector_search",
+      "inputs": {
+        "query": "What causes database connection timeout issues?"
+      },
+      "outputs": {
+        "documents": [
+          {
+            "id": "doc1",
+            "content": "This is a sample document about root cause analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "rca"
+            },
+            "score": 0.95
+          },
+          {
+            "id": "doc2",
+            "content": "Common techniques for troubleshooting include log analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "troubleshooting"
+            },
+            "score": 0.85
+          },
+          {
+            "id": "doc3",
+            "content": "When diagnosing issues, start with the most recent changes.",
+            "metadata": {
+              "source": "best_practices",
+              "category": "diagnostics"
+            },
+            "score": 0.75
+          }
+        ]
+      },
+      "start_time": "2025-03-16 11:25:27.588882",
+      "end_time": "2025-03-16 11:25:27.588893",
+      "duration_ms": 0.011,
+      "metadata": {
+        "tool_name": "vector_search",
+        "document_count": 3
+      }
+    },
+    {
+      "step_name": "document_ranking",
+      "inputs": {
+        "query": "What causes database connection timeout issues?",
+        "documents": [
+          {
+            "id": "doc1",
+            "content": "This is a sample document about root cause analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "rca"
+            },
+            "score": 0.95
+          },
+          {
+            "id": "doc2",
+            "content": "Common techniques for troubleshooting include log analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "troubleshooting"
+            },
+            "score": 0.85
+          },
+          {
+            "id": "doc3",
+            "content": "When diagnosing issues, start with the most recent changes.",
+            "metadata": {
+              "source": "best_practices",
+              "category": "diagnostics"
+            },
+            "score": 0.75
+          }
+        ]
+      },
+      "outputs": {},
+      "start_time": "2025-03-16 11:25:27.588904",
+      "end_time": "2025-03-16 11:25:27.588914",
+      "duration_ms": 0.01,
+      "metadata": {
+        "tool_name": "document_ranking"
+      }
+    },
+    {
+      "step_name": "document_ranking",
+      "inputs": {
+        "query": "What causes database connection timeout issues?",
+        "documents": [
+          {
+            "id": "doc1",
+            "content": "This is a sample document about root cause analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "rca"
+            },
+            "score": 0.95
+          },
+          {
+            "id": "doc2",
+            "content": "Common techniques for troubleshooting include log analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "troubleshooting"
+            },
+            "score": 0.85
+          },
+          {
+            "id": "doc3",
+            "content": "When diagnosing issues, start with the most recent changes.",
+            "metadata": {
+              "source": "best_practices",
+              "category": "diagnostics"
+            },
+            "score": 0.75
+          }
+        ]
+      },
+      "outputs": {
+        "documents": [
+          {
+            "id": "doc1",
+            "content": "This is a sample document about root cause analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "rca"
+            },
+            "score": 0.95
+          },
+          {
+            "id": "doc2",
+            "content": "Common techniques for troubleshooting include log analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "troubleshooting"
+            },
+            "score": 0.85
+          },
+          {
+            "id": "doc3",
+            "content": "When diagnosing issues, start with the most recent changes.",
+            "metadata": {
+              "source": "best_practices",
+              "category": "diagnostics"
+            },
+            "score": 0.75
+          }
+        ]
+      },
+      "start_time": "2025-03-16 11:25:27.588933",
+      "end_time": "2025-03-16 11:25:27.588943",
+      "duration_ms": 0.01,
+      "metadata": {
+        "tool_name": "document_ranking",
+        "document_count": 3
+      }
+    },
+    {
+      "step_name": "response_generation",
+      "inputs": {
+        "query": "What causes database connection timeout issues?",
+        "documents": [
+          {
+            "id": "doc1",
+            "content": "This is a sample document about root cause analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "rca"
+            },
+            "score": 0.95
+          },
+          {
+            "id": "doc2",
+            "content": "Common techniques for troubleshooting include log analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "troubleshooting"
+            },
+            "score": 0.85
+          },
+          {
+            "id": "doc3",
+            "content": "When diagnosing issues, start with the most recent changes.",
+            "metadata": {
+              "source": "best_practices",
+              "category": "diagnostics"
+            },
+            "score": 0.75
+          }
+        ]
+      },
+      "outputs": {},
+      "start_time": "2025-03-16 11:25:27.588953",
+      "end_time": "2025-03-16 11:25:27.588963",
+      "duration_ms": 0.01,
+      "metadata": {
+        "tool_name": "response_generation"
+      }
+    },
+    {
+      "step_name": "response_generation",
+      "inputs": {
+        "query": "What causes database connection timeout issues?",
+        "documents": [
+          {
+            "id": "doc1",
+            "content": "This is a sample document about root cause analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "rca"
+            },
+            "score": 0.95
+          },
+          {
+            "id": "doc2",
+            "content": "Common techniques for troubleshooting include log analysis.",
+            "metadata": {
+              "source": "knowledge_base",
+              "category": "troubleshooting"
+            },
+            "score": 0.85
+          },
+          {
+            "id": "doc3",
+            "content": "When diagnosing issues, start with the most recent changes.",
+            "metadata": {
+              "source": "best_practices",
+              "category": "diagnostics"
+            },
+            "score": 0.75
+          }
+        ]
+      },
+      "outputs": {
+        "response": "Based on the retrieved documents, the answer to your question is that troubleshooting should start with analyzing logs and reviewing recent changes to the system.",
+        "citation_indices": [
+          0,
+          1,
+          2
+        ]
+      },
+      "start_time": "2025-03-16 11:25:27.588995",
+      "end_time": "2025-03-16 11:25:27.589006",
+      "duration_ms": 0.011,
+      "metadata": {
+        "tool_name": "response_generation",
+        "confidence_score": 0.85
+      }
+    }
+  ],
+  "final_response": "Based on the retrieved documents, the answer to your question is that troubleshooting should start with analyzing logs and reviewing recent changes to the system.",
+  "metadata": {}
+}

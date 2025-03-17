@@ -89,3 +89,4 @@ docker-compose.override.yml
 # Project specific
 docs/rca_project/ 
 docs
+traces

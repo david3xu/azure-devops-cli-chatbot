@@ -150,6 +150,44 @@ To use learn-only mode:
 - CLI: This is the default, or explicitly set with `--execution-mode learn`
 - API: Include `"mode": "learn"` in your JSON request
 
+## 🔍 Root Cause Analysis (RCA) System
+
+The project now includes a Root Cause Analysis (RCA) system with a Pydantic agent implementation:
+
+### Features
+
+- **Agent-Based Architecture**: Type-safe implementation with Pydantic models
+- **RAG Pipeline**: Vector search, document ranking, and response generation
+- **Azure Integration**: Connects to Azure OpenAI and Azure AI Search
+- **API Endpoints**: FastAPI integration for querying the RCA system
+
+### Using the RCA CLI
+
+Test the RCA system directly with the provided CLI tool:
+
+```bash
+# Run a single query
+python -m src.rca_cli "What are common causes of server failures?"
+
+# Run in interactive mode
+python -m src.rca_cli --interactive
+
+# Run with verbose output for debugging
+python -m src.rca_cli --verbose "How to troubleshoot network issues?"
+```
+
+### Sending Requests to the API
+
+```bash
+curl -X POST "http://localhost:8000/rca/query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is the root cause of high CPU usage?",
+    "max_documents": 5,
+    "temperature": 0.7
+  }'
+```
+
 ## Full Documentation
 
 For complete documentation, see the following resources in the `docs` directory:

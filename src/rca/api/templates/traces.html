@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RCA Workflow Traces</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .trace-list {
+            margin: 20px 0;
+        }
+        .trace-item {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .trace-item:hover {
+            background-color: #f0f0f0;
+        }
+        .trace-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .trace-query {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .trace-time {
+            color: #666;
+            font-size: 14px;
+        }
+        .trace-metrics {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        .metric {
+            background-color: #e9e9e9;
+            border-radius: 4px;
+            padding: 5px 10px;
+        }
+        .trace-link {
+            display: inline-block;
+            margin-top: 10px;
+            background-color: #007bff;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+        .trace-link:hover {
+            background-color: #0056b3;
+        }
+        .empty-message {
+            color: #666;
+            font-style: italic;
+            margin: 30px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>RCA Workflow Traces</h1>
+    
+    <div class="trace-list">
+        {% if traces %}
+            {% for trace in traces %}
+                <div class="trace-item">
+                    <div class="trace-header">
+                        <div class="trace-query">{{ trace.query }}</div>
+                        <div class="trace-time">{{ trace.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+                    </div>
+                    
+                    <div class="trace-metrics">
+                        <div class="metric">
+                            <strong>Duration:</strong> {{ "%.2f"|format(trace.duration_ms) }} ms
+                        </div>
+                        <div class="metric">
+                            <strong>Steps:</strong> {{ trace.steps|length }}
+                        </div>
+                        <div class="metric">
+                            <strong>ID:</strong> {{ trace.trace_id[:8] }}...
+                        </div>
+                    </div>
+                    
+                    <a href="/rca/visualize/trace/{{ trace.trace_id }}" class="trace-link">View Details</a>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-message">No traces found. Run some queries to generate traces.</div>
+        {% endif %}
+    </div>
+</body>
+</html> 
