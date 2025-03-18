@@ -90,3 +90,7 @@ docker-compose.override.yml
 docs/rca_project/ 
 docs
 traces
+
+# Environment configuration files with secrets
+.env.azure
+!.env.sample
