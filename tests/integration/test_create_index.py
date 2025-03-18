@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 # Load environment variables from .env.azure
-env_file = os.path.join(Path(__file__).resolve().parent.parent.parent.parent, '.env.azure')
+env_file = os.path.join(Path(__file__).resolve().parent.parent.parent, 'config', 'env', '.env.azure')
 if os.path.exists(env_file):
     print(f"Loading environment from {env_file}")
     load_dotenv(env_file)

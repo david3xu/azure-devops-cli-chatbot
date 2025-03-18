@@ -94,3 +94,23 @@ traces
 # Environment configuration files with secrets
 .env.azure
 !.env.sample
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Environment files
+.env
+.env.*
+!config/env/.env.sample
+!config/env/.env.template
+
+# Test cache
+.hypothesis/
+
+# Logs and databases
+*.sqlite
+
+# Misc
+Thumbs.db

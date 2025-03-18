@@ -7,11 +7,13 @@ on:
       - feature/milestone*
     paths:
       - 'src/rca/**'
+      - 'tests/**'
       - '.github/workflows/rca-regression-tests.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'src/rca/**'
+      - 'tests/**'
   workflow_dispatch:  # Allow manual triggering
 
 # Important: The regression tests require real Azure service credentials
@@ -31,6 +33,10 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  PYTHONPATH: .
+  PYTEST_CONFIG: config/pytest.ini
+
 jobs:
   check-required-secrets:
     name: Check Required Secrets
@@ -46,18 +52,4 @@ jobs:
           AZURE_SEARCH_ENDPOINT: ${{ secrets.AZURE_SEARCH_ENDPOINT }}
           AZURE_SEARCH_INDEX: ${{ secrets.AZURE_SEARCH_INDEX }}
         run: |
-          missing_secrets=()
-          
-          for secret in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_OPENAI_ENDPOINT AZURE_SEARCH_ADMIN_KEY AZURE_SEARCH_ENDPOINT AZURE_SEARCH_INDEX; do
-            if [ -z "${!secret}" ]; then
-              missing_secrets+=("$secret")
-            fi
-          done
-          
-          if [ ${#missing_secrets[@]} -gt 0 ]; then
-            echo "❌ Error: The following required secrets are missing:"
-            printf '%s\n' "${missing_secrets[@]}"
-            exit 1
-          fi
-          
-          echo "✅ All required secrets are present" 
+          bash scripts/test/run_tracking_tests.sh 
