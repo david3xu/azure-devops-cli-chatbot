@@ -1,0 +1,96 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Environment variables
+.env
+.env.local
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Azure credentials
+.azure/credentials/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docker volumes
+docker-volumes/
+
+# Environment
+.env
+.venv
+.env.*
+!.env.template
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+.cursor/
+
+# Azure
+.azure/
+
+# Misc
+.tmp/
+
+# Ignore all markdown files except README.md
+*.md
+!README.md
+
+# Project specific
+docs/rca_project/ 
+docs
+traces
+
+# Environment configuration files with secrets
+.env.azure
+!.env.sample

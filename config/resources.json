@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "variables": {},
+  "resources": [],
+  "outputs": {
+    "existingACR": {
+      "type": "object",
+      "value": {
+        "id": "/subscriptions/ccc6af52-5928-4dbe-8ceb-fa794974a30f/resourceGroups/rg-ragagentic/providers/Microsoft.ContainerRegistry/registries/existingresourcesacrjxmgxni44tt5o",
+        "loginServer": "existingresourcesacrjxmgxni44tt5o.azurecr.io",
+        "name": "existingresourcesacrjxmgxni44tt5o",
+        "resourceGroup": "rg-ragagentic"
+      }
+    },
+    "existingAppService": {
+      "type": "object",
+      "value": {
+        "defaultHostName": "uwachatbot-dev.azurewebsites.net",
+        "id": "/subscriptions/ccc6af52-5928-4dbe-8ceb-fa794974a30f/resourceGroups/rg-ragagentic/providers/Microsoft.Web/sites/uwachatbot-dev",
+        "name": "uwachatbot-dev",
+        "resourceGroup": "rg-ragagentic",
+        "state": "Running"
+      }
+    },
+    "existingStorageAccount": {
+      "type": "object",
+      "value": {
+        "id": "/subscriptions/ccc6af52-5928-4dbe-8ceb-fa794974a30f/resourceGroups/rg-ragagentic/providers/Microsoft.Storage/storageAccounts/ragagenticfuncstore",
+        "name": "ragagenticfuncstore",
+        "primaryEndpoints": {
+          "blob": "https://ragagenticfuncstore.blob.core.windows.net/",
+          "dfs": "https://ragagenticfuncstore.dfs.core.windows.net/",
+          "file": "https://ragagenticfuncstore.file.core.windows.net/",
+          "internetEndpoints": null,
+          "microsoftEndpoints": null,
+          "queue": "https://ragagenticfuncstore.queue.core.windows.net/",
+          "table": "https://ragagenticfuncstore.table.core.windows.net/",
+          "web": "https://ragagenticfuncstore.z13.web.core.windows.net/"
+        },
+        "resourceGroup": "rg-ragagentic"
+      }
+    }
+  }
+}

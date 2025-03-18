@@ -1,0 +1,42 @@
+{
+  "conversation": {
+    "max_history_messages": 10,
+    "default_temperature": 0.7,
+    "available_modes": ["general", "devops-expert"]
+  },
+  "api": {
+    "rate_limit": 100,
+    "timeout_seconds": 30,
+    "retry_attempts": 3,
+    "health_check_path": "/health"
+  },
+  "logging": {
+    "console_level": "INFO",
+    "file_level": "DEBUG",
+    "metrics_collection": true,
+    "log_format": "structured"
+  },
+  "ui": {
+    "theme": "dark",
+    "show_token_usage": true,
+    "display_mode": "conversational"
+  },
+  "devops": {
+    "default_organization": "",
+    "default_project": "",
+    "work_item_types": ["Bug", "User Story", "Task"],
+    "pipeline_refresh_interval": 60
+  },
+  "azure": {
+    "resources": {
+      "location": "eastus",
+      "container_registry_sku": "Basic",
+      "app_service_sku": "B1"
+    }
+  },
+  "features": {
+    "enable_devops_cli_helper": true,
+    "enable_metrics_dashboard": true,
+    "enable_cost_tracking": true
+  }
+} 

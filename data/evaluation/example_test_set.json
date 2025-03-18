@@ -1,0 +1,27 @@
+[
+  {
+    "query": "What are common root cause analysis techniques?",
+    "expected_results": ["doc1", "doc2"],
+    "top_k": 5
+  },
+  {
+    "query": "How to troubleshoot performance issues?",
+    "expected_results": ["doc2", "doc3"],
+    "top_k": 5
+  },
+  {
+    "query": "Best practices for diagnosing system problems",
+    "expected_results": ["doc3"],
+    "top_k": 3
+  },
+  {
+    "query": "Log analysis for troubleshooting",
+    "expected_results": ["doc2"],
+    "top_k": 3
+  },
+  {
+    "query": "Steps for investigating system failures",
+    "expected_results": ["doc1", "doc3"],
+    "top_k": 5
+  }
+] 
