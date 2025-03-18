@@ -27,6 +27,13 @@ templates = Jinja2Templates(directory=templates_dir)
 def get_tracker():
     """Dependency to get the workflow tracker from the agent"""
     agent = RCAAgent()
+    # Make sure the tracker is using the correct storage path
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    storage_dir = os.path.join(base_dir, 'data', 'traces')
+    print(f"Using trace storage directory: {storage_dir}")
+    # Replace the tracker's storage backend
+    from src.rca.tracking.workflow import FileStorageBackend
+    agent.tracker.register_storage_backend(FileStorageBackend(storage_dir))
     return agent.tracker
 
 

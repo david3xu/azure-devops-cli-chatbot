@@ -114,79 +114,130 @@ class FileStorageBackend:
 
 
 class WorkflowTracker:
-    """Track workflow execution with inputs and outputs at each step"""
+    """
+    Tracks workflow execution steps and stores traces.
+    Provides methods to retrieve and analyze workflow execution.
+    """
     
-    def __init__(self):
-        self.active_traces: Dict[str, WorkflowTrace] = {}
-        self.completed_traces: List[WorkflowTrace] = []
-        self.storage_backends = []
+    def __init__(self, storage_backend=None):
+        """Initialize the workflow tracker"""
+        self.traces = {}
+        self.storage_backend = storage_backend or FileStorageBackend()
+        self._load_traces()
         
-        # Add file storage backend by default
-        self.register_storage_backend(FileStorageBackend())
+    def _load_traces(self):
+        """Load traces from storage"""
+        if hasattr(self.storage_backend, 'load_traces'):
+            loaded_traces = self.storage_backend.load_traces()
+            for trace in loaded_traces:
+                self.traces[trace.trace_id] = trace
+            print(f"Loaded {len(loaded_traces)} traces from storage")
+    
+    def register_storage_backend(self, storage_backend):
+        """Register a different storage backend"""
+        self.storage_backend = storage_backend
+        self._load_traces()
         
-        # Load existing traces on startup
-        self._load_traces_from_storage()
-    
-    def _load_traces_from_storage(self):
-        """Load traces from storage backends"""
-        for backend in self.storage_backends:
-            if hasattr(backend, 'load_traces'):
-                traces = backend.load_traces()
-                self.completed_traces.extend(traces)
-                print(f"Loaded {len(traces)} traces from storage")
-    
-    def register_storage_backend(self, backend):
-        """Register a storage backend for traces"""
-        self.storage_backends.append(backend)
-    
-    def start_trace(self, query: str, metadata: Optional[Dict[str, Any]] = None) -> str:
-        """Start tracking a new workflow execution"""
-        trace = WorkflowTrace(
+    def start_trace(self, query):
+        """Start a new workflow trace"""
+        trace_id = str(uuid.uuid4())
+        self.traces[trace_id] = WorkflowTrace(
+            trace_id=trace_id,
             query=query,
-            metadata=metadata or {}
+            start_time=datetime.now()
         )
-        self.active_traces[trace.trace_id] = trace
-        return trace.trace_id
-    
-    def track_step(self, trace_id: str, step_name: str, 
-                  inputs: Dict[str, Any], outputs: Dict[str, Any],
-                  metadata: Optional[Dict[str, Any]] = None) -> None:
-        """Track a step in the workflow"""
-        if trace_id not in self.active_traces:
-            return
-            
-        trace = self.active_traces[trace_id]
-        step = trace.add_step(step_name, inputs)
-        if metadata:
-            step.metadata = metadata
-        trace.complete_step(step, outputs)
-    
-    def complete_trace(self, trace_id: str, final_response: str) -> Optional[WorkflowTrace]:
-        """Complete a workflow trace"""
-        if trace_id not in self.active_traces:
-            return None
-            
-        trace = self.active_traces.pop(trace_id)
-        trace.complete_workflow(final_response)
+        print(f"Started new trace {trace_id} for query: {query}")
+        return trace_id
         
-        # Store the completed trace
-        self.completed_traces.append(trace)
-        for backend in self.storage_backends:
-            backend.store_trace(trace)
+    def complete_trace(self, trace_id, final_response=None):
+        """Complete a workflow trace"""
+        if trace_id not in self.traces:
+            print(f"Warning: Trace {trace_id} not found in memory")
+            return False
             
-        return trace
+        trace = self.traces[trace_id]
+        trace.end_time = datetime.now()
+        trace.duration_ms = (trace.end_time - trace.start_time).total_seconds() * 1000
+        
+        if final_response is not None:
+            trace.final_response = final_response
+            
+        # Store to persistent storage
+        if self.storage_backend:
+            self.storage_backend.store_trace(trace)
+            
+        return True
     
-    def get_trace(self, trace_id: str) -> Optional[WorkflowTrace]:
-        """Get a trace by ID"""
-        if trace_id in self.active_traces:
-            return self.active_traces[trace_id]
+    def track_step(self, trace_id, step_name, inputs, outputs, metadata=None):
+        """Track a step in the workflow"""
+        if trace_id not in self.traces:
+            print(f"Warning: Trace {trace_id} not found for step {step_name}")
+            return False
             
-        for trace in self.completed_traces:
-            if trace.trace_id == trace_id:
+        trace = self.traces[trace_id]
+        
+        # Find existing step with same name or create new one
+        existing_steps = [s for s in trace.steps if s.step_name == step_name]
+        
+        if existing_steps:
+            step = existing_steps[0]
+            # Update the step
+            step.outputs = outputs
+            step.end_time = datetime.now()
+            step.duration_ms = (step.end_time - step.start_time).total_seconds() * 1000
+            if metadata:
+                step.metadata.update(metadata)
+        else:
+            # Create a new step
+            step = StepTrace(
+                step_name=step_name,
+                inputs=inputs,
+                outputs=outputs,
+                start_time=datetime.now(),
+                end_time=datetime.now(),
+                metadata=metadata or {}
+            )
+            trace.steps.append(step)
+            
+        return True
+        
+    def get_trace(self, trace_id):
+        """Get a specific trace by ID"""
+        # Try to get from memory first
+        if trace_id in self.traces:
+            return self.traces[trace_id]
+            
+        # Try to load from storage if available
+        if hasattr(self.storage_backend, 'get_trace'):
+            trace = self.storage_backend.get_trace(trace_id)
+            if trace:
+                self.traces[trace_id] = trace
                 return trace
                 
         return None
-    
-    def get_recent_traces(self, limit: int = 10) -> List[WorkflowTrace]:
+        
+    def get_recent_traces(self, limit=10):
         """Get the most recent traces"""
-        return self.completed_traces[-limit:] 
+        # First, ensure we've loaded all available traces
+        self._load_traces()
+        
+        # Get all traces and sort by start_time descending
+        all_traces = list(self.traces.values())
+        
+        # Debug output of trace dates
+        for trace in all_traces:
+            print(f"Found trace: {trace.trace_id} - {trace.query} - {trace.start_time}")
+        
+        # Sort by start_time descending (most recent first)
+        sorted_traces = sorted(
+            all_traces, 
+            key=lambda t: t.start_time if t.start_time else datetime.min, 
+            reverse=True
+        )
+        
+        # Log the sorting results
+        print(f"Returning {min(limit, len(sorted_traces))} traces from {len(sorted_traces)} total")
+        for i, trace in enumerate(sorted_traces[:limit]):
+            print(f"{i+1}. {trace.trace_id} - {trace.query} - {trace.start_time}")
+        
+        return sorted_traces[:limit] 
