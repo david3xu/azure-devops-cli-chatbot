@@ -1,0 +1,63 @@
+name: RCA Regression Tests
+
+on:
+  push:
+    branches: 
+      - main
+      - feature/milestone*
+    paths:
+      - 'src/rca/**'
+      - '.github/workflows/rca-regression-tests.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/rca/**'
+  workflow_dispatch:  # Allow manual triggering
+
+# Important: The regression tests require real Azure service credentials
+# You must add the following secrets to your GitHub repository:
+# - AZURE_CLIENT_ID: Your Azure Application (client) ID
+# - AZURE_TENANT_ID: Your Azure Tenant ID
+# - AZURE_SUBSCRIPTION_ID: Your Azure Subscription ID
+# - AZURE_OPENAI_ENDPOINT: Your Azure OpenAI Endpoint
+# - AZURE_OPENAI_EMBEDDING_DEPLOYMENT: Your Azure OpenAI Embedding Deployment Name
+# - AZURE_SEARCH_ADMIN_KEY: Your Azure Search Admin Key
+# - AZURE_SEARCH_ENDPOINT: Your Azure Search Endpoint
+# - AZURE_SEARCH_INDEX: Your Azure Search Index Name
+# - AZURE_SEARCH_API_VERSION: Azure Search API Version (e.g., "2023-11-01")
+# - AZURE_OPENAI_CHATGPT_DEPLOYMENT: Your Azure OpenAI ChatGPT Deployment Name
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  check-required-secrets:
+    name: Check Required Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Azure Credentials
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_SEARCH_ADMIN_KEY: ${{ secrets.AZURE_SEARCH_ADMIN_KEY }}
+          AZURE_SEARCH_ENDPOINT: ${{ secrets.AZURE_SEARCH_ENDPOINT }}
+          AZURE_SEARCH_INDEX: ${{ secrets.AZURE_SEARCH_INDEX }}
+        run: |
+          missing_secrets=()
+          
+          for secret in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_OPENAI_ENDPOINT AZURE_SEARCH_ADMIN_KEY AZURE_SEARCH_ENDPOINT AZURE_SEARCH_INDEX; do
+            if [ -z "${!secret}" ]; then
+              missing_secrets+=("$secret")
+            fi
+          done
+          
+          if [ ${#missing_secrets[@]} -gt 0 ]; then
+            echo "❌ Error: The following required secrets are missing:"
+            printf '%s\n' "${missing_secrets[@]}"
+            exit 1
+          fi
+          
+          echo "✅ All required secrets are present" 
